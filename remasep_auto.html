@@ -347,18 +347,46 @@
   // ── Load patient registry ──────────────────────────────────────────────────
 
   async function loadRegistry(file) {
+    // Show loading state without destroying the dropzone structure
+    const dz1 = document.getElementById('dz1');
+    const loadingMsg = document.createElement('div');
+    loadingMsg.id = 'loadingMsg';
+    loadingMsg.style.cssText = 'margin-top:8px; color:var(--muted); font-size:13px;';
+    loadingMsg.textContent = '⏳ Cargando... puede tardar unos segundos';
+    dz1.appendChild(loadingMsg);
+
+    // Yield to browser so the loading message renders before heavy processing
+    await new Promise(r => setTimeout(r, 50));
+
     try {
       const buf = await readFileBuffer(file);
-      const wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true });
 
-      // Find "Datos Diarios" sheet
-      const sheetName = wb.SheetNames.find(n => norm(n).includes('datos diarios') || norm(n).includes('datodiario'));
+      // Read only the sheet names first (lightweight) to avoid loading all data
+      const wbMeta = XLSX.read(new Uint8Array(buf), { type: 'array', bookSheets: true });
+      const sheetName = wbMeta.SheetNames.find(n => norm(n).includes('datos diarios') || norm(n).includes('datodiario'));
       if (!sheetName) {
         alert('No se encontró la hoja "Datos Diarios" en el archivo. Verifica que sea el registro correcto.');
         return;
       }
 
+      // Read only the specific sheet we need, limiting columns to A:P (primeras 16)
+      // La hoja tiene 16.000+ columnas pre-calculadas — leer solo las que usamos
+      const wb = XLSX.read(new Uint8Array(buf), {
+        type: 'array',
+        sheets: sheetName,   // leer solo esta hoja
+        sheetRows: 5000,     // máximo de filas
+      });
+
       const ws = wb.Sheets[sheetName];
+
+      // Truncar el rango a las primeras 20 columnas (A:T) antes de convertir a JSON
+      // Esto evita procesar miles de columnas innecesarias
+      if (ws['!ref']) {
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        range.e.c = Math.min(range.e.c, 19); // columna T = índice 19
+        ws['!ref'] = XLSX.utils.encode_range(range);
+      }
+
       // Read all as arrays (row 0 = Excel row 1, row 1 = Excel row 2 = headers, row 2+ = data)
       const all = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
@@ -404,7 +432,8 @@
       allProcedures = [...procSet].sort();
       regWorkbook   = wb;
 
-      // Update UI
+      // Remove loading message and update UI
+      document.getElementById('loadingMsg')?.remove();
       document.getElementById('dz1').classList.add('loaded');
       document.getElementById('regInfo').style.display = 'block';
       document.getElementById('regFileName').textContent = '✓ ' + file.name;
@@ -428,6 +457,7 @@
       checkReady();
 
     } catch (err) {
+      document.getElementById('loadingMsg')?.remove();
       console.error(err);
       alert('Error al leer el archivo: ' + err.message);
     }
