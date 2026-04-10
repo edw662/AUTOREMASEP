@@ -393,7 +393,21 @@
       if (all.length < 3) { alert('La hoja "Datos Diarios" parece estar vacía.'); return; }
 
       regHeaders = all[1]; // Excel row 2 = headers
-      regRows    = all.slice(2).filter(r => r.some(c => c !== '')); // Data rows, skip blanks
+
+      // Filtrar solo año 2026 usando columna P (Ano, índice 15) o columna A (Fecha)
+      // Esto reduce drásticamente el volumen de datos procesados
+      const COL_ANO   = 15; // columna P = "Ano"
+      const COL_FECHA = 0;  // columna A = "Fecha"
+      regRows = all.slice(2).filter(r => {
+        if (!r.some(c => c !== '')) return false; // saltar filas vacías
+        const ano = r[COL_ANO];
+        if (ano !== undefined && ano !== '') return Number(ano) === 2026;
+        // fallback: leer año desde la fecha
+        const fecha = r[COL_FECHA];
+        if (!fecha) return false;
+        const d = new Date(fecha);
+        return !isNaN(d) && d.getFullYear() === 2026;
+      });
 
       // Map column names to indices (normalize)
       colIdx = {};
@@ -438,7 +452,7 @@
       document.getElementById('regInfo').style.display = 'block';
       document.getElementById('regFileName').textContent = '✓ ' + file.name;
       document.getElementById('regFileInfo').textContent =
-        `${regRows.length} registros · ${allMonths.length} meses · ${allProcedures.length} procedimientos únicos`;
+        `${regRows.length} registros año 2026 · ${allMonths.length} meses · ${allProcedures.length} procedimientos únicos`;
       document.getElementById('badge1').textContent = 'Cargado';
       document.getElementById('badge1').className = 'badge ok';
 
