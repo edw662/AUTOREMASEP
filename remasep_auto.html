@@ -160,7 +160,7 @@
 <body>
 <div class="wrap">
 
-  <h1>⚙️ REMASEP AUTOMATIZADOR <span style="font-size:13px; font-weight:400; color:var(--muted); margin-left:8px;">v1.5</span></h1>
+  <h1>⚙️ REMASEP AUTOMATIZADOR <span style="font-size:13px; font-weight:400; color:var(--muted); margin-left:8px;">v1.6</span></h1>
   <p class="subtitle">Rellena la pestaña REMASEP_OD automáticamente desde tu registro de pacientes.</p>
 
   <!-- Progress steps -->
@@ -232,6 +232,13 @@
     </div>
 
     <div style="margin-top:16px;">
+      <!-- Checklist de requisitos -->
+      <div id="checkList" style="margin-bottom:12px; display:flex; flex-direction:column; gap:5px; font-size:13px;">
+        <div id="chk1">⬜ Registro de pacientes cargado</div>
+        <div id="chk2">⬜ Mes seleccionado</div>
+        <div id="chk3">⬜ Al menos un procedimiento marcado</div>
+        <div id="chk4">⬜ Template REMASEP cargado</div>
+      </div>
       <div id="alertGenerar" class="alert"></div>
       <button class="big" id="btnGenerar" disabled onclick="generar()">
         ▶ Generar REMASEP llenado
@@ -652,10 +659,15 @@
     const btn = document.getElementById('btnGenerar');
     btn.disabled = !(mesOk && regOk && remasepOk && mapOk);
 
+    // Actualizar checklist visual
+    const c = (ok, text) => (ok ? '✅ ' : '❌ ') + text;
+    document.getElementById('chk1').textContent = c(regOk,     'Registro de pacientes cargado' + (regOk ? ` (${regRows.length} registros 2026)` : ''));
+    document.getElementById('chk2').textContent = c(mesOk,     'Mes seleccionado' + (mesOk ? `: ${document.getElementById('selMes').value}` : ''));
+    document.getElementById('chk3').textContent = c(mapOk,     'Procedimiento(s) marcados' + (mapOk ? `: ${mappings.filter(m=>m.procedures.length>0).map(m=>m.procedures.join(', ')).join(' | ')}` : ''));
+    document.getElementById('chk4').textContent = c(remasepOk, 'Template REMASEP cargado' + (remasepOk ? ` ✓` : ''));
+
     const alert = document.getElementById('alertGenerar');
-    if (!mesOk && regOk)       { showAlert(alert, 'info', 'Selecciona el mes a reportar.'); }
-    else if (!mapOk && regOk)  { showAlert(alert, 'info', 'Selecciona al menos un procedimiento en el mapeo.'); }
-    else                       { alert.style.display = 'none'; }
+    if (mesOk && regOk && remasepOk && mapOk) { alert.style.display = 'none'; }
 
     // Update badge2
     if (mesOk && mapOk) {
