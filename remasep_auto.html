@@ -721,9 +721,17 @@
 
   // ── Generate ───────────────────────────────────────────────────────────────
 
-  function generar() {
+  async function generar() {
     const alertEl = document.getElementById('alertGenerar');
+    const btn = document.getElementById('btnGenerar');
     const mes = document.getElementById('selMes').value;
+
+    // Mostrar estado de carga en el botón
+    btn.disabled = true;
+    btn.textContent = '⏳ Procesando...';
+
+    // Ceder al navegador para que actualice la UI antes de procesar
+    await new Promise(r => setTimeout(r, 60));
 
     try {
       // Work directly on the loaded workbook (no clone needed — user re-loads REMASEP each month)
@@ -779,9 +787,14 @@
       // Scroll to result
       document.getElementById('previewCard').scrollIntoView({ behavior: 'smooth' });
 
+      btn.textContent = '✅ Generado — vuelve a hacer clic para regenerar';
+      btn.disabled = false;
+
     } catch (err) {
       console.error(err);
       showAlert(alertEl, 'err', 'Error al generar: ' + err.message);
+      btn.textContent = '▶ Generar REMASEP llenado';
+      btn.disabled = false;
     }
   }
 
