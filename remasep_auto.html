@@ -97,7 +97,7 @@
 <body>
 <div class="wrap">
 
-  <h1>⚙️ REMASEP AUTOMATIZADOR <span style="font-size:13px;font-weight:400;color:var(--muted);margin-left:6px;">v1.7</span></h1>
+  <h1>⚙️ REMASEP AUTOMATIZADOR <span style="font-size:13px;font-weight:400;color:var(--muted);margin-left:6px;">v1.8</span></h1>
   <p class="subtitle">Pega los datos del mes → selecciona procedimientos → descarga el REMASEP llenado.</p>
 
   <!-- PASO 1: Pegar datos -->
@@ -238,11 +238,12 @@ function parsePaste() {
   const text = document.getElementById('pasteArea').value.trim();
   if (!text) { alert('Pega primero los datos copiados desde Excel.'); return; }
 
-  // PapaParse con auto-detección de delimitador (tab o coma)
+  // PapaParse — forzar tab (datos copiados desde Excel)
   const result = Papa.parse(text, {
     header: true,
     skipEmptyLines: true,
     dynamicTyping: false,
+    delimiter: '\t',
   });
 
   if (!result.data || result.data.length === 0) {
@@ -252,7 +253,7 @@ function parsePaste() {
 
   // Normalizar encabezados
   const rawHeaders = result.meta.fields || [];
-  pastedRows = result.data.map(row => {
+  const allRows = result.data.map(row => {
     const r = {};
     for (const [k,v] of Object.entries(row)) r[norm(k)] = v;
     // alias sexo→genero
@@ -262,7 +263,7 @@ function parsePaste() {
   });
 
   // Verificar columnas mínimas necesarias
-  const sample = pastedRows[0] || {};
+  const sample = allRows[0] || {};
   const hasProc = 'procedimiento' in sample;
   const hasSexo = 'genero' in sample || 'sexo' in sample;
   const hasEdad = 'edad' in sample;
@@ -276,7 +277,19 @@ function parsePaste() {
     return;
   }
 
-  // Extraer procedimientos únicos
+  // Filtrar filas no clínicas: pagos, gastos, anuladas, compras
+  const EXCLUIR_FORMA = ['gasto', 'anulada', 'honorarios'];
+  const EXCLUIR_PROC  = ['pago', 'compra', 'encomienda', 'deposito', 'devolucion'];
+  const excluidas = [];
+  pastedRows = allRows.filter(r => {
+    const forma = norm(r['forma_pago'] ?? r['forma pago'] ?? '');
+    const proc  = norm(r['procedimiento'] ?? '');
+    if (EXCLUIR_FORMA.includes(forma)) { excluidas.push(r); return false; }
+    if (!proc || EXCLUIR_PROC.some(x => proc.startsWith(x))) { excluidas.push(r); return false; }
+    return true;
+  });
+
+  // Extraer procedimientos únicos solo de filas clínicas
   const procSet = new Set();
   pastedRows.forEach(r => { const p = String(r['procedimiento']??'').trim(); if(p) procSet.add(p); });
   allProcedures = [...procSet].sort();
@@ -285,8 +298,10 @@ function parsePaste() {
   document.getElementById('badge1').textContent = `${pastedRows.length} filas`;
   document.getElementById('badge1').className = 'badge ok';
   document.getElementById('pasteInfo').style.display = 'block';
-  document.getElementById('pasteInfo').textContent =
-    `✓ ${pastedRows.length} registros · ${allProcedures.length} procedimientos encontrados: ${allProcedures.join(', ')}`;
+  document.getElementById('pasteInfo').innerHTML =
+    `✓ <strong>${pastedRows.length} registros clínicos</strong> · ${allProcedures.length} procedimientos · ` +
+    `<span style="color:#e65c00">${excluidas.length} filas excluidas (pagos/gastos/anuladas)</span><br>` +
+    `Procedimientos: ${allProcedures.join(', ')}`;
 
   // Mostrar paso 2 y 3
   document.getElementById('step2card').style.display = 'block';
