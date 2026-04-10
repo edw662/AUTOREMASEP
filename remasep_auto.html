@@ -4,259 +4,170 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>REMASEP AUTOMATIZADOR</title>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root {
-    --bg: #fff3e0; --card: #fff8f0; --ink: #1a1a1a; --muted: #78716c;
-    --accent: #22c55e; --accent2: #16a34a; --border: #fcd9b0;
-    --ok: #bbf7d0; --warn: #fef08a; --err: #fecaca;
-    --blue: #3b82f6; --blue-light: #dbeafe;
+    --bg:#fff3e0; --card:#fff8f0; --ink:#1a1a1a; --muted:#78716c;
+    --accent:#22c55e; --accent2:#16a34a; --border:#fcd9b0;
+    --ok:#bbf7d0; --warn:#fef08a; --err:#fecaca;
+    --blue:#3b82f6; --blue-light:#dbeafe;
   }
   * { box-sizing: border-box; }
-  body { background: var(--bg); color: var(--ink); font-family: system-ui, Segoe UI, Inter, Arial, sans-serif; margin: 0; }
-  .wrap { max-width: 1000px; margin: 20px auto; padding: 0 16px 60px; }
-  h1 { margin: 0 0 4px; font-size: clamp(18px, 2.8vw, 26px); }
-  .subtitle { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+  body { background:var(--bg); color:var(--ink); font-family:system-ui,Segoe UI,Inter,Arial,sans-serif; margin:0; }
+  .wrap { max-width:1000px; margin:20px auto; padding:0 16px 60px; }
+  h1 { margin:0 0 4px; font-size:clamp(18px,2.8vw,26px); }
+  .subtitle { color:var(--muted); font-size:13px; margin:0 0 18px; }
 
-  /* Steps */
-  .steps { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
-  .step-dot {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 12px; font-weight: 700; color: var(--muted);
-  }
-  .step-dot .num {
-    width: 22px; height: 22px; border-radius: 50%; background: #e5e7eb;
-    display: flex; align-items: center; justify-content: center; font-size: 11px;
-  }
-  .step-dot.done .num { background: var(--accent); color: #052e16; }
-  .step-dot.active .num { background: var(--blue); color: white; }
-  .step-dot.active { color: var(--ink); }
-  .step-dot.done { color: var(--accent2); }
-  .sep { color: #d1d5db; margin-top: 1px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:14px; }
+  .card-title { font-weight:800; font-size:14px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+  .badge { font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; background:var(--blue-light); color:var(--blue); }
+  .badge.ok { background:var(--ok); color:#166534; }
 
-  /* Cards */
-  .card {
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: 12px; padding: 16px; margin-bottom: 14px;
+  textarea {
+    width:100%; min-height:130px; background:#fff; color:var(--ink);
+    border:1px solid var(--border); border-radius:10px; padding:10px;
+    font-size:13px; font-family:ui-monospace,monospace; resize:vertical;
   }
-  .card-title {
-    font-weight: 800; font-size: 14px; margin-bottom: 12px;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .badge {
-    font-size: 11px; font-weight: 700; padding: 2px 8px;
-    border-radius: 20px; background: var(--blue-light); color: var(--blue);
-  }
-  .badge.ok { background: var(--ok); color: #166534; }
-  .badge.warn { background: var(--warn); color: #854d0e; }
+  textarea:focus { outline:2px solid var(--accent); }
 
-  /* Drop zones */
-  .dropzone {
-    border: 2px dashed var(--border); border-radius: 10px; padding: 24px;
-    text-align: center; cursor: pointer; transition: all .15s;
-    color: var(--muted); font-size: 14px;
-  }
-  .dropzone:hover, .dropzone.drag { border-color: var(--accent); background: #f0fdf4; color: var(--ink); }
-  .dropzone.loaded { border-style: solid; border-color: var(--accent); background: #f0fdf4; }
-  .dropzone input[type=file] { display: none; }
-  .file-name { font-weight: 700; color: var(--ink); font-size: 13px; margin-top: 6px; }
-  .file-info { font-size: 12px; color: var(--muted); margin-top: 2px; }
-
-  /* Form controls */
-  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
-  .field { display: flex; flex-direction: column; gap: 4px; }
-  label { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-  select {
-    background: white; border: 1px solid var(--border); border-radius: 8px;
-    padding: 8px 12px; font-size: 14px; cursor: pointer; color: var(--ink);
-    min-width: 160px;
-  }
-  select:focus { outline: 2px solid var(--accent); }
-
-  /* Procedure checkboxes */
-  .proc-grid {
-    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
-  }
+  .proc-grid { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
   .proc-chip {
-    display: flex; align-items: center; gap: 5px;
-    background: white; border: 1px solid var(--border);
-    border-radius: 20px; padding: 4px 10px; cursor: pointer;
-    font-size: 13px; transition: all .12s;
+    display:flex; align-items:center; gap:5px;
+    background:white; border:1px solid var(--border);
+    border-radius:20px; padding:4px 10px; cursor:pointer; font-size:13px;
   }
-  .proc-chip:hover { border-color: var(--accent); }
-  .proc-chip input { accent-color: var(--accent); cursor: pointer; }
-  .proc-chip.checked { background: #f0fdf4; border-color: var(--accent); font-weight: 600; }
+  .proc-chip input { accent-color:var(--accent); cursor:pointer; }
+  .proc-chip.checked { background:#f0fdf4; border-color:var(--accent); font-weight:600; }
 
-  /* Mapping section */
-  .mapping-row {
-    background: white; border: 1px solid var(--border); border-radius: 10px;
-    padding: 12px; margin-bottom: 10px;
-  }
-  .mapping-header { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
-  .mapping-label { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
-  .row-tag {
-    display: inline-block; font-size: 11px; font-weight: 700;
-    background: var(--blue-light); color: var(--blue);
-    border-radius: 4px; padding: 2px 6px; margin-right: 6px;
-  }
+  .mapping-row { background:white; border:1px solid var(--border); border-radius:10px; padding:12px; margin-bottom:10px; }
+  .row-tag { display:inline-block; font-size:11px; font-weight:700; background:var(--blue-light); color:var(--blue); border-radius:4px; padding:2px 6px; margin-right:6px; }
 
-  /* Buttons */
-  button {
-    background: var(--accent); color: #052e16; border: none;
-    padding: 10px 18px; border-radius: 10px; font-weight: 800;
-    cursor: pointer; font-size: 14px; transition: background .15s;
-  }
-  button:hover { background: var(--accent2); color: white; }
-  button:disabled { opacity: .45; cursor: not-allowed; }
-  button.secondary { background: #fde8c8; color: var(--ink); border: 1px solid var(--border); }
-  button.secondary:hover { background: var(--border); }
-  button.big { padding: 12px 24px; font-size: 15px; border-radius: 12px; }
+  .dropzone { border:2px dashed var(--border); border-radius:10px; padding:20px; text-align:center; cursor:pointer; color:var(--muted); font-size:14px; }
+  .dropzone:hover, .dropzone.drag { border-color:var(--accent); background:#f0fdf4; color:var(--ink); }
+  .dropzone.loaded { border-style:solid; border-color:var(--accent); background:#f0fdf4; }
+  .dropzone input[type=file] { display:none; }
+  .file-name { font-weight:700; font-size:13px; margin-top:6px; }
+  .file-info { font-size:12px; color:var(--muted); margin-top:2px; }
 
-  /* Preview table */
-  .table-wrap { overflow-x: auto; margin-top: 8px; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
-  th, td { border-bottom: 1px solid var(--border); padding: 7px 10px; text-align: center; white-space: nowrap; }
-  th { background: #fde8c8; font-size: 12px; position: sticky; top: 0; }
-  td.left { text-align: left; }
-  tr.total-row td { font-weight: 800; background: #fef9c3; }
-  tr.total-personas td { font-weight: 800; background: #dcfce7; }
+  .field { display:flex; flex-direction:column; gap:4px; }
+  label { font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  select { background:white; border:1px solid var(--border); border-radius:8px; padding:8px 12px; font-size:14px; cursor:pointer; min-width:160px; }
 
-  /* Control status */
-  .control-box {
-    display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;
-  }
-  .control-item {
-    display: flex; align-items: center; gap: 6px;
-    background: white; border: 1px solid var(--border);
-    border-radius: 8px; padding: 6px 12px; font-size: 13px;
-  }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: #d1d5db; }
-  .dot.ok { background: var(--accent); }
-  .dot.err { background: #ef4444; }
+  button { background:var(--accent); color:#052e16; border:none; padding:10px 18px; border-radius:10px; font-weight:800; cursor:pointer; font-size:14px; }
+  button:hover { background:var(--accent2); color:white; }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  button.secondary { background:#fde8c8; color:var(--ink); border:1px solid var(--border); }
+  button.warn { background:#ef4444; color:white; }
+  button.big { padding:12px 24px; font-size:15px; border-radius:12px; }
 
-  /* Alert */
-  .alert {
-    border-radius: 10px; padding: 10px 14px; font-size: 13px;
-    margin-bottom: 12px; display: none;
-  }
-  .alert.err { background: var(--err); color: #7f1d1d; display: block; }
-  .alert.info { background: var(--blue-light); color: #1e3a5f; display: block; }
-  .alert.ok { background: var(--ok); color: #166534; display: block; }
+  .checklist { display:flex; flex-direction:column; gap:5px; font-size:13px; margin-bottom:12px; }
 
-  /* Download section */
-  #downloadSection { display: none; }
-  .download-card {
-    background: #f0fdf4; border: 2px solid var(--accent);
-    border-radius: 12px; padding: 20px; text-align: center; margin-top: 16px;
-  }
-  .download-card p { margin: 0 0 12px; color: #166534; font-weight: 700; }
-  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
-  .excluidos { font-size: 12px; color: var(--muted); margin-top: 6px; padding: 6px 10px; background: var(--warn); border-radius: 6px; display: inline-block; }
+  .alert { border-radius:10px; padding:10px 14px; font-size:13px; margin-bottom:12px; display:none; }
+  .alert.err  { background:var(--err);  color:#7f1d1d; display:block; }
+  .alert.info { background:var(--blue-light); color:#1e3a5f; display:block; }
+  .alert.warn { background:var(--warn); color:#854d0e; display:block; }
 
-  /* Hidden until needed */
-  #step2card, #step3card, #previewCard, #downloadSection { display: none; }
+  .table-wrap { overflow-x:auto; margin-top:8px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { border-bottom:1px solid var(--border); padding:7px 10px; text-align:center; white-space:nowrap; }
+  th { background:#fde8c8; font-size:12px; }
+  td.left { text-align:left; }
+  tr.total-row td { font-weight:800; background:#fef9c3; }
+  tr.total-personas td { font-weight:800; background:#dcfce7; }
+
+  .download-card { background:#f0fdf4; border:2px solid var(--accent); border-radius:12px; padding:20px; text-align:center; margin-top:16px; }
+  .download-card p { margin:0 0 12px; color:#166534; font-weight:700; }
+  .hint { font-size:12px; color:var(--muted); margin-top:6px; }
+
+  #step2card, #step3card, #previewCard, #downloadSection { display:none; }
+
+  .progress-wrap { margin-top:12px; display:none; }
+  .progress-labels { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:4px; }
+  .progress-track { background:#fde8c8; border-radius:20px; height:10px; overflow:hidden; }
+  .progress-bar { height:100%; width:0%; background:var(--accent); border-radius:20px; transition:width .3s ease; }
+
+  .control-box { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .control-item { display:flex; align-items:center; gap:6px; background:white; border:1px solid var(--border); border-radius:8px; padding:5px 10px; font-size:12px; }
+  .dot { width:9px; height:9px; border-radius:50%; background:#d1d5db; }
+  .dot.ok { background:var(--accent); }
+  .dot.err { background:#ef4444; }
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <h1>⚙️ REMASEP AUTOMATIZADOR <span style="font-size:13px; font-weight:400; color:var(--muted); margin-left:8px;">v1.6</span></h1>
-  <p class="subtitle">Rellena la pestaña REMASEP_OD automáticamente desde tu registro de pacientes.</p>
+  <h1>⚙️ REMASEP AUTOMATIZADOR <span style="font-size:13px;font-weight:400;color:var(--muted);margin-left:6px;">v1.7</span></h1>
+  <p class="subtitle">Pega los datos del mes → selecciona procedimientos → descarga el REMASEP llenado.</p>
 
-  <!-- Progress steps -->
-  <div class="steps" id="stepIndicator">
-    <div class="step-dot active" id="sdot1"><span class="num">1</span> Registro pacientes</div>
-    <span class="sep">›</span>
-    <div class="step-dot" id="sdot2"><span class="num">2</span> Configurar</div>
-    <span class="sep">›</span>
-    <div class="step-dot" id="sdot3"><span class="num">3</span> Template REMASEP</div>
-    <span class="sep">›</span>
-    <div class="step-dot" id="sdot4"><span class="num">4</span> Generar</div>
-  </div>
-
-  <!-- STEP 1: Upload patient registry -->
+  <!-- PASO 1: Pegar datos -->
   <div class="card" id="step1card">
     <div class="card-title">
-      <span>1. Registro de Pacientes</span>
+      1. Pega los datos del mes
       <span class="badge" id="badge1">Pendiente</span>
     </div>
-    <div class="dropzone" id="dz1" onclick="document.getElementById('fileReg').click()">
-      <input type="file" id="fileReg" accept=".xlsx,.xls,.xlsm" />
-      <div>📂 Arrastra aquí tu Excel de pacientes o haz clic para seleccionarlo</div>
-      <div style="font-size:12px; margin-top:6px;">REGISTRO PACIENTES [fecha].xlsx</div>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 8px;">
+      Copia desde tu Excel (hoja <strong>Datos Diarios</strong>) las filas del mes que quieres reportar
+      y pégalas aquí. Debe incluir las columnas: <strong>Procedimiento, Sexo, Edad, Embarazada, Migrante</strong>.
+    </p>
+    <textarea id="pasteArea" placeholder="Pega aquí las filas copiadas desde Excel (con encabezados)..."></textarea>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button onclick="parsePaste()">Leer datos</button>
+      <button class="warn" onclick="clearPaste()">Borrar</button>
     </div>
-    <div id="regInfo" style="display:none">
-      <div class="file-name" id="regFileName"></div>
-      <div class="file-info" id="regFileInfo"></div>
-    </div>
+    <div id="pasteInfo" style="display:none;margin-top:8px;font-size:12px;color:var(--muted);"></div>
   </div>
 
-  <!-- STEP 2: Configure -->
+  <!-- PASO 2: Configurar -->
   <div class="card" id="step2card">
     <div class="card-title">
-      <span>2. Configurar Mes y Procedimientos</span>
+      2. Mapear procedimientos a filas REMASEP
       <span class="badge" id="badge2">Pendiente</span>
     </div>
-
-    <div class="row" style="margin-bottom:16px; align-items:flex-end;">
-      <div class="field">
-        <label>Mes a reportar</label>
-        <select id="selMes">
-          <option value="">— Selecciona —</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Mapping: Exodoncia → row 41 -->
+    <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">
+      Marca qué procedimientos del registro van en cada fila del REMASEP_OD.
+    </p>
     <div id="mappingContainer"></div>
-
-    <div style="margin-top:10px;">
-      <button class="secondary" onclick="addMapping()" id="btnAddMapping">+ Agregar otro tratamiento al REMASEP</button>
-    </div>
+    <button class="secondary" style="margin-top:8px;" onclick="addMapping()">+ Agregar fila REMASEP</button>
   </div>
 
-  <!-- STEP 3: Upload REMASEP template -->
+  <!-- PASO 3: Template REMASEP -->
   <div class="card" id="step3card">
     <div class="card-title">
-      <span>3. Template REMASEP</span>
+      3. Template REMASEP
       <span class="badge" id="badge3">Pendiente</span>
     </div>
     <div class="dropzone" id="dz2" onclick="document.getElementById('fileRemasep').click()">
       <input type="file" id="fileRemasep" accept=".xlsx,.xls,.xlsm" />
-      <div>📂 Arrastra aquí tu REMASEP o haz clic para seleccionarlo</div>
-      <div style="font-size:12px; margin-top:6px;">REMASEP 2026_V1.3.xlsm (u otro año)</div>
+      <div>📂 Arrastra tu REMASEP aquí o haz clic para seleccionarlo</div>
+      <div style="font-size:12px;margin-top:4px;">REMASEP 2026_V1.3.xlsm</div>
     </div>
-    <div id="remasepInfo" style="display:none">
+    <div id="remasepInfo" style="display:none;">
       <div class="file-name" id="remasepFileName"></div>
       <div class="file-info" id="remasepFileInfo"></div>
     </div>
 
     <div style="margin-top:16px;">
-      <!-- Checklist de requisitos -->
-      <div id="checkList" style="margin-bottom:12px; display:flex; flex-direction:column; gap:5px; font-size:13px;">
-        <div id="chk1">⬜ Registro de pacientes cargado</div>
-        <div id="chk2">⬜ Mes seleccionado</div>
-        <div id="chk3">⬜ Al menos un procedimiento marcado</div>
-        <div id="chk4">⬜ Template REMASEP cargado</div>
+      <div class="checklist" id="checkList">
+        <div id="chk1">⬜ Datos pegados</div>
+        <div id="chk2">⬜ Procedimiento(s) marcados</div>
+        <div id="chk3">⬜ Template REMASEP cargado</div>
       </div>
       <div id="alertGenerar" class="alert"></div>
-      <button class="big" id="btnGenerar" disabled onclick="generar()">
-        ▶ Generar REMASEP llenado
-      </button>
-      <!-- Barra de progreso -->
-      <div id="progressWrap" style="display:none; margin-top:12px;">
-        <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:4px;">
+      <button class="big" id="btnGenerar" disabled onclick="generar()">▶ Generar REMASEP llenado</button>
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-labels">
           <span id="progressLabel">Procesando...</span>
           <span id="progressPct">0%</span>
         </div>
-        <div style="background:#fde8c8; border-radius:20px; height:10px; overflow:hidden;">
-          <div id="progressBar" style="height:100%; width:0%; background:var(--accent); border-radius:20px; transition:width 0.3s ease;"></div>
+        <div class="progress-track">
+          <div class="progress-bar" id="progressBar"></div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- STEP 4: Preview & Download -->
+  <!-- PASO 4: Resultado -->
   <div id="previewCard" class="card">
     <div class="card-title">4. Resultado de Clasificación</div>
     <div id="previewTables"></div>
@@ -265,769 +176,460 @@
   <div id="downloadSection">
     <div class="download-card">
       <p>✅ REMASEP llenado correctamente</p>
-      <button class="big" onclick="descargar()">⬇ Descargar REMASEP llenado (.xlsm)</button>
-      <div class="hint">El archivo contiene los mismos códigos y fórmulas del REMASEP original.<br>Solo se completaron las celdas de datos en REMASEP_OD.</div>
+      <button class="big" onclick="descargar()">⬇ Descargar REMASEP llenado</button>
+      <div class="hint">Solo se completaron las celdas de datos en REMASEP_OD. Fórmulas y estructura intactas.</div>
     </div>
-    <!-- Control validation -->
     <div class="card" style="margin-top:14px;">
       <div class="card-title">Verificación pestaña CONTROL</div>
       <div class="control-box" id="controlBox"></div>
-      <div class="hint" style="margin-top:8px;">Valores leídos directamente del REMASEP. Abrir en Excel para recalcular si alguno aparece como fórmula.</div>
     </div>
   </div>
 
-</div><!-- /wrap -->
+</div>
 
 <script>
-(function () {
-  'use strict';
+(function(){
+'use strict';
 
-  // ── Constants ──────────────────────────────────────────────────────────────
+// ── Rangos de edad → columnas REMASEP_OD ─────────────────────────────────────
+const RANGOS = [
+  { nombre:"Menos de 1 año - 1 año", min:0,  max:1,   colH:"E",  colM:"F"  },
+  { nombre:"2 años",                  min:2,  max:2,   colH:"G",  colM:"H"  },
+  { nombre:"3 años",                  min:3,  max:3,   colH:"I",  colM:"J"  },
+  { nombre:"4 años",                  min:4,  max:4,   colH:"K",  colM:"L"  },
+  { nombre:"5 años",                  min:5,  max:5,   colH:"M",  colM:"N"  },
+  { nombre:"6 años",                  min:6,  max:6,   colH:"O",  colM:"P"  },
+  { nombre:"7 años",                  min:7,  max:7,   colH:"Q",  colM:"R"  },
+  { nombre:"8-9 años",                min:8,  max:9,   colH:"S",  colM:"T"  },
+  { nombre:"10-14 años",              min:10, max:14,  colH:"U",  colM:"V"  },
+  { nombre:"15-19 años",              min:15, max:19,  colH:"W",  colM:"X"  },
+  { nombre:"20-24 años",              min:20, max:24,  colH:"Y",  colM:"Z"  },
+  { nombre:"25-34 años",              min:25, max:34,  colH:"AA", colM:"AB" },
+  { nombre:"35-44 años",              min:35, max:44,  colH:"AC", colM:"AD" },
+  { nombre:"45-59 años",              min:45, max:59,  colH:"AE", colM:"AF" },
+  { nombre:"60-64 años",              min:60, max:64,  colH:"AG", colM:"AH" },
+  { nombre:"65-74 años",              min:65, max:74,  colH:"AI", colM:"AJ" },
+  { nombre:"75 y más años",           min:75, max:300, colH:"AK", colM:"AL" },
+];
+const COL_EMB = "AM", COL_MIG = "AN";
 
-  const RANGOS = [
-    { nombre: "Menos de 1 año - 1 año", min: 0,  max: 1,   colH: "E",  colM: "F"  },
-    { nombre: "2 años",                  min: 2,  max: 2,   colH: "G",  colM: "H"  },
-    { nombre: "3 años",                  min: 3,  max: 3,   colH: "I",  colM: "J"  },
-    { nombre: "4 años",                  min: 4,  max: 4,   colH: "K",  colM: "L"  },
-    { nombre: "5 años",                  min: 5,  max: 5,   colH: "M",  colM: "N"  },
-    { nombre: "6 años",                  min: 6,  max: 6,   colH: "O",  colM: "P"  },
-    { nombre: "7 años",                  min: 7,  max: 7,   colH: "Q",  colM: "R"  },
-    { nombre: "8-9 años",                min: 8,  max: 9,   colH: "S",  colM: "T"  },
-    { nombre: "10-14 años",              min: 10, max: 14,  colH: "U",  colM: "V"  },
-    { nombre: "15-19 años",              min: 15, max: 19,  colH: "W",  colM: "X"  },
-    { nombre: "20-24 años",              min: 20, max: 24,  colH: "Y",  colM: "Z"  },
-    { nombre: "25-34 años",              min: 25, max: 34,  colH: "AA", colM: "AB" },
-    { nombre: "35-44 años",              min: 35, max: 44,  colH: "AC", colM: "AD" },
-    { nombre: "45-59 años",              min: 45, max: 59,  colH: "AE", colM: "AF" },
-    { nombre: "60-64 años",              min: 60, max: 64,  colH: "AG", colM: "AH" },
-    { nombre: "65-74 años",              min: 65, max: 74,  colH: "AI", colM: "AJ" },
-    { nombre: "75 y más años",           min: 75, max: 300, colH: "AK", colM: "AL" },
-  ];
-  const COL_EMBARAZADAS = "AM";
-  const COL_MIGRANTES   = "AN";
+// ── Estado ────────────────────────────────────────────────────────────────────
+let pastedRows      = [];   // filas parseadas del textarea
+let allProcedures   = [];   // procedimientos únicos encontrados
+let remasepWorkbook = null;
+let remasepFileName = '';
+let resultWorkbook  = null;
+let mappings = [
+  { id:1, remasepRow:41, label:"Exodoncia (todos los tipos)", procedures:[] }
+];
+let mappingCounter = 1;
 
-  // Mapeo inicial de tratamientos: cada item → una fila de REMASEP_OD
-  // procedures[] = los procedimientos del registro que se suman en esa fila
-  let mappings = [
-    { id: 1, remasepRow: 41, label: "Exodoncia (todos los tipos)", procedures: [] }
-  ];
-  let mappingCounter = 1;
+// ── Utilidades ────────────────────────────────────────────────────────────────
+const stripA = s => String(s??'').normalize('NFD').replace(/\p{Diacritic}/gu,'');
+const norm   = s => stripA(s).trim().toLowerCase();
+const toNum  = v => { const n=Number(String(v??'').replace(/[^\d.-]/g,'')); return isNaN(n)?NaN:n; };
+const yes    = v => { const x=norm(v); return x==='si'||x==='s'; };
+const isMale = v => ['hombre','masculino','male','m'].includes(norm(v));
+const isFem  = v => ['mujer','femenino','female','f'].includes(norm(v));
+const findRange = edad => RANGOS.find(r=>edad>=r.min&&edad<=r.max);
 
-  // ── State ──────────────────────────────────────────────────────────────────
-  let regWorkbook     = null;  // workbook del registro de pacientes
-  let remasepWorkbook = null;  // workbook del REMASEP (leído con bookVBA:true)
-  let remasepFileName = '';
-  let allProcedures   = [];    // procedimientos únicos en el registro
-  let allMonths       = [];    // meses únicos en el registro
-  let regRows         = [];    // filas de datos del registro (arrays)
-  let regHeaders      = [];    // encabezados (fila 2 del Excel)
-  let colIdx          = {};    // mapeo nombre→índice para columnas clave
-  let resultWorkbook  = null;  // workbook modificado listo para descargar
+// ── PASO 1: Parsear datos pegados ─────────────────────────────────────────────
+function parsePaste() {
+  const text = document.getElementById('pasteArea').value.trim();
+  if (!text) { alert('Pega primero los datos copiados desde Excel.'); return; }
 
-  // ── Utility ────────────────────────────────────────────────────────────────
-  const norm    = s => String(s ?? '').trim().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
-  const normMes = s => norm(s);
-  const yes     = v => { const x = norm(String(v ?? '')); return x === 'si' || x === 's'; };
-  const isMale  = v => ['hombre', 'masculino', 'male', 'm'].includes(norm(v));
-  const isFem   = v => ['mujer', 'femenino', 'female', 'f'].includes(norm(v));
-  const toNum   = v => { if (v === null || v === undefined || v === '') return NaN; const n = Number(String(v).replace(/[^\d.-]/g, '')); return isNaN(n) ? NaN : n; };
+  // PapaParse con auto-detección de delimitador (tab o coma)
+  const result = Papa.parse(text, {
+    header: true,
+    skipEmptyLines: true,
+    dynamicTyping: false,
+  });
 
-  function findRange(edad) {
-    for (const r of RANGOS) if (edad >= r.min && edad <= r.max) return r;
-    return null;
+  if (!result.data || result.data.length === 0) {
+    alert('No se pudieron leer los datos. Asegúrate de copiar incluyendo la fila de encabezados.');
+    return;
   }
 
-  // ── File loading ───────────────────────────────────────────────────────────
+  // Normalizar encabezados
+  const rawHeaders = result.meta.fields || [];
+  pastedRows = result.data.map(row => {
+    const r = {};
+    for (const [k,v] of Object.entries(row)) r[norm(k)] = v;
+    // alias sexo→genero
+    if ('sexo' in r && !('genero' in r)) r['genero'] = r['sexo'];
+    if ('género' in r && !('genero' in r)) r['genero'] = r['género'];
+    return r;
+  });
 
-  function setupDropzone(dzId, inputId, onFile) {
-    const dz = document.getElementById(dzId);
-    const inp = document.getElementById(inputId);
+  // Verificar columnas mínimas necesarias
+  const sample = pastedRows[0] || {};
+  const hasProc = 'procedimiento' in sample;
+  const hasSexo = 'genero' in sample || 'sexo' in sample;
+  const hasEdad = 'edad' in sample;
 
-    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
-    dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
-    dz.addEventListener('drop', e => {
-      e.preventDefault(); dz.classList.remove('drag');
-      if (e.dataTransfer.files.length) onFile(e.dataTransfer.files[0]);
-    });
-    inp.addEventListener('change', () => { if (inp.files.length) onFile(inp.files[0]); });
+  if (!hasProc || !hasSexo || !hasEdad) {
+    const faltantes = [];
+    if (!hasProc) faltantes.push('Procedimiento');
+    if (!hasSexo) faltantes.push('Sexo/Género');
+    if (!hasEdad) faltantes.push('Edad');
+    alert(`Faltan columnas: ${faltantes.join(', ')}.\n\nEncabezados encontrados: ${rawHeaders.join(', ')}`);
+    return;
   }
 
-  function readFileBuffer(file) {
-    return new Promise((res, rej) => {
-      const fr = new FileReader();
-      fr.onload = e => res(e.target.result);
-      fr.onerror = rej;
-      fr.readAsArrayBuffer(file);
-    });
-  }
+  // Extraer procedimientos únicos
+  const procSet = new Set();
+  pastedRows.forEach(r => { const p = String(r['procedimiento']??'').trim(); if(p) procSet.add(p); });
+  allProcedures = [...procSet].sort();
 
-  // ── Load patient registry ──────────────────────────────────────────────────
+  // UI
+  document.getElementById('badge1').textContent = `${pastedRows.length} filas`;
+  document.getElementById('badge1').className = 'badge ok';
+  document.getElementById('pasteInfo').style.display = 'block';
+  document.getElementById('pasteInfo').textContent =
+    `✓ ${pastedRows.length} registros · ${allProcedures.length} procedimientos encontrados: ${allProcedures.join(', ')}`;
 
-  async function loadRegistry(file) {
-    // Show loading state without destroying the dropzone structure
-    const dz1 = document.getElementById('dz1');
-    const loadingMsg = document.createElement('div');
-    loadingMsg.id = 'loadingMsg';
-    loadingMsg.style.cssText = 'margin-top:8px; color:var(--muted); font-size:13px;';
-    loadingMsg.textContent = '⏳ Cargando... puede tardar unos segundos';
-    dz1.appendChild(loadingMsg);
+  // Mostrar paso 2 y 3
+  document.getElementById('step2card').style.display = 'block';
+  document.getElementById('step3card').style.display = 'block';
+  renderMappings();
+  checkReady();
+}
 
-    // Yield to browser so the loading message renders before heavy processing
-    await new Promise(r => setTimeout(r, 50));
+function clearPaste() {
+  document.getElementById('pasteArea').value = '';
+  document.getElementById('pasteInfo').style.display = 'none';
+  document.getElementById('badge1').textContent = 'Pendiente';
+  document.getElementById('badge1').className = 'badge';
+  pastedRows = []; allProcedures = [];
+  document.getElementById('step2card').style.display = 'none';
+  document.getElementById('step3card').style.display = 'none';
+  document.getElementById('previewCard').style.display = 'none';
+  document.getElementById('downloadSection').style.display = 'none';
+  checkReady();
+}
 
-    try {
-      const buf = await readFileBuffer(file);
+// ── PASO 2: Mappings ──────────────────────────────────────────────────────────
+function renderMappings() {
+  const c = document.getElementById('mappingContainer');
+  c.innerHTML = '';
+  mappings.forEach(m => c.appendChild(buildMappingCard(m)));
+}
 
-      // Read only the sheet names first (lightweight) to avoid loading all data
-      const wbMeta = XLSX.read(new Uint8Array(buf), { type: 'array', bookSheets: true });
-      const sheetName = wbMeta.SheetNames.find(n => norm(n).includes('datos diarios') || norm(n).includes('datodiario'));
-      if (!sheetName) {
-        alert('No se encontró la hoja "Datos Diarios" en el archivo. Verifica que sea el registro correcto.');
-        return;
-      }
+function buildMappingCard(mapping) {
+  const div = document.createElement('div');
+  div.className = 'mapping-row';
 
-      // Read only the specific sheet we need, limiting columns to A:P (primeras 16)
-      // La hoja tiene 16.000+ columnas pre-calculadas — leer solo las que usamos
-      const wb = XLSX.read(new Uint8Array(buf), {
-        type: 'array',
-        sheets: sheetName,   // leer solo esta hoja
-        sheetRows: 5000,     // máximo de filas
-      });
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'font-size:12px;margin-bottom:6px;';
+  hdr.innerHTML = `<span class="row-tag">Fila ${mapping.remasepRow}</span><strong>${mapping.label}</strong>`
+    + (mappings.length > 1
+      ? ` <button class="warn" style="padding:2px 8px;font-size:11px;margin-left:8px;" onclick="removeMapping(${mapping.id})">✕</button>`
+      : '');
 
-      const ws = wb.Sheets[sheetName];
+  const sub = document.createElement('div');
+  sub.style.cssText = 'font-size:12px;color:var(--muted);margin-bottom:6px;';
+  sub.textContent = 'Procedimientos que van en esta fila:';
 
-      // Truncar el rango a las primeras 20 columnas (A:T) antes de convertir a JSON
-      // Esto evita procesar miles de columnas innecesarias
-      if (ws['!ref']) {
-        const range = XLSX.utils.decode_range(ws['!ref']);
-        range.e.c = Math.min(range.e.c, 19); // columna T = índice 19
-        ws['!ref'] = XLSX.utils.encode_range(range);
-      }
+  const grid = document.createElement('div');
+  grid.className = 'proc-grid';
 
-      // Read all as arrays (row 0 = Excel row 1, row 1 = Excel row 2 = headers, row 2+ = data)
-      const all = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-
-      if (all.length < 3) { alert('La hoja "Datos Diarios" parece estar vacía.'); return; }
-
-      regHeaders = all[1]; // Excel row 2 = headers
-
-      // Filtrar solo año 2026 usando columna P (Ano, índice 15) o columna A (Fecha)
-      // Esto reduce drásticamente el volumen de datos procesados
-      const COL_ANO   = 15; // columna P = "Ano"
-      const COL_FECHA = 0;  // columna A = "Fecha"
-      regRows = all.slice(2).filter(r => {
-        if (!r.some(c => c !== '')) return false; // saltar filas vacías
-        const ano = r[COL_ANO];
-        if (ano !== undefined && ano !== '') return Number(ano) === 2026;
-        // fallback: leer año desde la fecha
-        const fecha = r[COL_FECHA];
-        if (!fecha) return false;
-        const d = new Date(fecha);
-        return !isNaN(d) && d.getFullYear() === 2026;
-      });
-
-      // Map column names to indices (normalize)
-      colIdx = {};
-      regHeaders.forEach((h, i) => { colIdx[norm(String(h))] = i; });
-
-      // Resolve specific columns
-      const COL = {
-        mes:       findCol(['mes']),
-        sexo:      findCol(['sexo', 'genero', 'género']),
-        edad:      findCol(['edad']),
-        embarazada:findCol(['embarazada', 'embarazo']),
-        migrante:  findCol(['migrante', 'migracion', 'migración']),
-        procedimiento: findCol(['procedimiento']),
-        cantidad:  findCol(['cantidad']),
-      };
-
-      if (COL.mes === -1 || COL.sexo === -1 || COL.edad === -1 || COL.procedimiento === -1) {
-        alert('No se encontraron las columnas requeridas (Mes, Sexo, Edad, Procedimiento). Verifica el archivo.');
-        return;
-      }
-
-      // Store resolved column indices globally
-      window._COL = COL;
-
-      // Extract unique months and procedures
-      const mesSet  = new Set();
-      const procSet = new Set();
-      for (const row of regRows) {
-        const m = String(row[COL.mes] ?? '').trim();
-        const p = String(row[COL.procedimiento] ?? '').trim();
-        if (m) mesSet.add(m);
-        if (p) procSet.add(p);
-      }
-
-      allMonths     = [...mesSet].sort();
-      allProcedures = [...procSet].sort();
-      regWorkbook   = wb;
-
-      // Remove loading message and update UI
-      document.getElementById('loadingMsg')?.remove();
-      document.getElementById('dz1').classList.add('loaded');
-      document.getElementById('regInfo').style.display = 'block';
-      document.getElementById('regFileName').textContent = '✓ ' + file.name;
-      document.getElementById('regFileInfo').textContent =
-        `${regRows.length} registros año 2026 · ${allMonths.length} meses · ${allProcedures.length} procedimientos únicos`;
-      document.getElementById('badge1').textContent = 'Cargado';
-      document.getElementById('badge1').className = 'badge ok';
-
-      // Populate month selector
-      const sel = document.getElementById('selMes');
-      sel.innerHTML = '<option value="">— Selecciona mes —</option>';
-      allMonths.forEach(m => {
-        const opt = document.createElement('option'); opt.value = m; opt.textContent = m; sel.appendChild(opt);
-      });
-
-      // Show step 2
-      document.getElementById('step2card').style.display = 'block';
-      document.getElementById('step3card').style.display = 'block';
-      renderMappings();
-      updateStepDots(2);
+  allProcedures.forEach(p => {
+    const chip = document.createElement('label');
+    chip.className = 'proc-chip' + (mapping.procedures.includes(p) ? ' checked' : '');
+    const chk = document.createElement('input');
+    chk.type = 'checkbox'; chk.value = p; chk.checked = mapping.procedures.includes(p);
+    chk.addEventListener('change', () => {
+      if (chk.checked) mapping.procedures.push(p);
+      else mapping.procedures = mapping.procedures.filter(x=>x!==p);
+      chip.classList.toggle('checked', chk.checked);
       checkReady();
-
-    } catch (err) {
-      document.getElementById('loadingMsg')?.remove();
-      console.error(err);
-      alert('Error al leer el archivo: ' + err.message);
-    }
-  }
-
-  function findCol(candidates) {
-    for (const c of candidates) {
-      if (c in colIdx) return colIdx[c];
-      // partial match
-      const found = Object.keys(colIdx).find(k => k.startsWith(c) || c.startsWith(k));
-      if (found !== undefined) return colIdx[found];
-    }
-    return -1;
-  }
-
-  // ── Load REMASEP template ──────────────────────────────────────────────────
-
-  async function loadRemasep(file) {
-    try {
-      const buf = await readFileBuffer(file);
-      // Read preserving VBA, styles, and all content
-      remasepWorkbook = XLSX.read(new Uint8Array(buf), {
-        type: 'array',
-        bookVBA: true,
-        cellStyles: true,
-        cellNF: true,
-        cellFormula: true,
-      });
-      remasepFileName = file.name;
-
-      // Check REMASEP_OD sheet exists
-      const odSheet = remasepWorkbook.SheetNames.find(n => norm(n).includes('remasep_od') || norm(n).includes('remasepod'));
-      if (!odSheet) {
-        alert('No se encontró la hoja "REMASEP_OD" en el archivo REMASEP.');
-        remasepWorkbook = null;
-        return;
-      }
-
-      document.getElementById('dz2').classList.add('loaded');
-      document.getElementById('remasepInfo').style.display = 'block';
-      document.getElementById('remasepFileName').textContent = '✓ ' + file.name;
-      document.getElementById('remasepFileInfo').textContent =
-        `Hojas: ${remasepWorkbook.SheetNames.join(', ')}`;
-      document.getElementById('badge3').textContent = 'Cargado';
-      document.getElementById('badge3').className = 'badge ok';
-      checkReady();
-
-    } catch (err) {
-      console.error(err);
-      alert('Error al leer el REMASEP: ' + err.message);
-    }
-  }
-
-  // ── Mapping UI ─────────────────────────────────────────────────────────────
-
-  function renderMappings() {
-    const container = document.getElementById('mappingContainer');
-    container.innerHTML = '';
-    mappings.forEach(m => {
-      container.appendChild(buildMappingCard(m));
     });
-  }
+    chip.appendChild(chk);
+    chip.appendChild(document.createTextNode(p));
+    grid.appendChild(chip);
+  });
 
-  function buildMappingCard(mapping) {
-    const div = document.createElement('div');
-    div.className = 'mapping-row';
-    div.id = 'mapping-' + mapping.id;
-
-    const header = document.createElement('div');
-    header.className = 'mapping-header';
-    header.innerHTML =
-      `<span class="row-tag">Fila ${mapping.remasepRow}</span>` +
-      `<strong>${mapping.label}</strong>` +
-      (mappings.length > 1
-        ? ` <button class="secondary" style="padding:2px 8px; font-size:11px; margin-left:8px;" onclick="removeMapping(${mapping.id})">✕ Quitar</button>`
-        : '');
-
-    const subLabel = document.createElement('div');
-    subLabel.style.cssText = 'font-size:12px; color:var(--muted); margin-bottom:6px;';
-    subLabel.textContent = 'Selecciona los procedimientos del registro que corresponden a esta fila del REMASEP:';
-
-    const grid = document.createElement('div');
-    grid.className = 'proc-grid';
-    grid.id = 'grid-' + mapping.id;
-
-    allProcedures.forEach(p => {
-      const chip = document.createElement('label');
-      chip.className = 'proc-chip' + (mapping.procedures.includes(p) ? ' checked' : '');
-      const chk = document.createElement('input');
-      chk.type = 'checkbox';
-      chk.value = p;
-      chk.checked = mapping.procedures.includes(p);
-      chk.addEventListener('change', () => {
-        if (chk.checked) {
-          mapping.procedures.push(p);
-          chip.classList.add('checked');
-        } else {
-          mapping.procedures = mapping.procedures.filter(x => x !== p);
-          chip.classList.remove('checked');
-        }
+  // Auto-seleccionar Exodoncia en el primer mapeo
+  if (mapping.id === 1 && mapping.procedures.length === 0) {
+    const match = allProcedures.find(p => norm(p).includes('exodoncia'));
+    if (match) {
+      mapping.procedures.push(match);
+      setTimeout(() => {
+        grid.querySelectorAll('input').forEach(i => {
+          if (i.value === match) { i.checked = true; i.parentElement.classList.add('checked'); }
+        });
         checkReady();
-      });
-      chip.appendChild(chk);
-      chip.appendChild(document.createTextNode(p));
-      grid.appendChild(chip);
-    });
+      }, 0);
+    }
+  }
 
-    // If "Exodoncia" exists in procedures, pre-select it for the default mapping
-    if (mapping.id === 1 && mapping.procedures.length === 0) {
-      const exactMatch = allProcedures.find(p => norm(p) === 'exodoncia');
-      const fuzzyMatch = allProcedures.find(p => norm(p).includes('exodoncia'));
-      const toSelect = exactMatch || fuzzyMatch;
-      if (toSelect) {
-        mapping.procedures.push(toSelect);
-        // Update checkbox
-        setTimeout(() => {
-          const g = document.getElementById('grid-' + mapping.id);
-          if (g) {
-            g.querySelectorAll('input[type=checkbox]').forEach(chk => {
-              if (chk.value === toSelect) {
-                chk.checked = true;
-                chk.parentElement.classList.add('checked');
-              }
-            });
-          }
-          checkReady();
-        }, 0);
+  div.appendChild(hdr); div.appendChild(sub); div.appendChild(grid);
+  return div;
+}
+
+function addMapping() {
+  const row = prompt('Número de fila en REMASEP_OD:');
+  if (!row || isNaN(parseInt(row))) return;
+  const lbl = prompt('Descripción de esa fila:') || ('Fila ' + row);
+  mappingCounter++;
+  mappings.push({ id:mappingCounter, remasepRow:parseInt(row), label:lbl, procedures:[] });
+  renderMappings();
+}
+
+function removeMapping(id) {
+  mappings = mappings.filter(m=>m.id!==id);
+  renderMappings();
+}
+
+// ── PASO 3: Cargar REMASEP ────────────────────────────────────────────────────
+function setupDrop() {
+  const dz = document.getElementById('dz2');
+  const inp = document.getElementById('fileRemasep');
+  dz.addEventListener('dragover', e=>{e.preventDefault();dz.classList.add('drag');});
+  dz.addEventListener('dragleave', ()=>dz.classList.remove('drag'));
+  dz.addEventListener('drop', e=>{e.preventDefault();dz.classList.remove('drag');if(e.dataTransfer.files[0])loadRemasep(e.dataTransfer.files[0]);});
+  inp.addEventListener('change', ()=>{if(inp.files[0])loadRemasep(inp.files[0]);});
+}
+
+async function loadRemasep(file) {
+  try {
+    const buf = await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=e=>res(e.target.result);fr.onerror=rej;fr.readAsArrayBuffer(file);});
+    remasepWorkbook = XLSX.read(new Uint8Array(buf),{type:'array',bookVBA:true,cellStyles:true,cellNF:true,cellFormula:true});
+    remasepFileName = file.name;
+
+    const od = remasepWorkbook.SheetNames.find(n=>norm(n).includes('remasep_od')||norm(n).includes('remasepod'));
+    if (!od) { alert('No se encontró la hoja REMASEP_OD en el archivo.'); remasepWorkbook=null; return; }
+
+    document.getElementById('dz2').classList.add('loaded');
+    document.getElementById('remasepInfo').style.display = 'block';
+    document.getElementById('remasepFileName').textContent = '✓ ' + file.name;
+    document.getElementById('remasepFileInfo').textContent = 'Hojas: ' + remasepWorkbook.SheetNames.join(', ');
+    document.getElementById('badge3').textContent = 'Cargado';
+    document.getElementById('badge3').className = 'badge ok';
+    checkReady();
+  } catch(err) { alert('Error al leer REMASEP: '+err.message); }
+}
+
+// ── Readiness ─────────────────────────────────────────────────────────────────
+function checkReady() {
+  const dataOk    = pastedRows.length > 0;
+  const mapOk     = mappings.some(m=>m.procedures.length>0);
+  const remasepOk = remasepWorkbook !== null;
+
+  document.getElementById('chk1').textContent = (dataOk?'✅':'❌') + ' Datos pegados' + (dataOk?` (${pastedRows.length} filas)`:'');
+  document.getElementById('chk2').textContent = (mapOk?'✅':'❌') + ' Procedimiento(s) marcados' + (mapOk?`: ${mappings.filter(m=>m.procedures.length>0).map(m=>m.procedures.join('+')).join(' | ')}` :'');
+  document.getElementById('chk3').textContent = (remasepOk?'✅':'❌') + ' Template REMASEP cargado';
+
+  document.getElementById('btnGenerar').disabled = !(dataOk && mapOk && remasepOk);
+
+  if (mapOk) {
+    document.getElementById('badge2').textContent = 'Listo';
+    document.getElementById('badge2').className = 'badge ok';
+  }
+}
+
+// ── Clasificación ─────────────────────────────────────────────────────────────
+function classifyRows(rows, procedures) {
+  const normedProcs = procedures.map(norm);
+  const counts = { hombres:{}, mujeres:{}, embarazadas:0, migrantes:0, excluidos:0 };
+  RANGOS.forEach(r=>{ counts.hombres[r.nombre]=0; counts.mujeres[r.nombre]=0; });
+
+  for (const row of rows) {
+    const proc = norm(String(row['procedimiento']??''));
+    if (!normedProcs.includes(proc)) continue;
+
+    const edad  = toNum(row['edad']);
+    const sexo  = row['genero'] ?? row['sexo'] ?? '';
+    const embar = yes(row['embarazada']??row['embarazo']??'');
+    const migr  = yes(row['migrante']??row['migracion']??'');
+    const cant  = Math.max(1, Math.round(toNum(row['cantidad'])||1));
+
+    if (isNaN(edad)) { counts.excluidos += cant; continue; }
+    const rango = findRange(edad);
+    if (!rango) { counts.excluidos += cant; continue; }
+
+    if (isMale(sexo)) counts.hombres[rango.nombre] += cant;
+    if (isFem(sexo))  counts.mujeres[rango.nombre] += cant;
+    if (embar) counts.embarazadas += cant;
+    if (migr)  counts.migrantes   += cant;
+  }
+  return counts;
+}
+
+// ── Generar ───────────────────────────────────────────────────────────────────
+async function generar() {
+  const btn     = document.getElementById('btnGenerar');
+  const alertEl = document.getElementById('alertGenerar');
+  const progWrap= document.getElementById('progressWrap');
+  const progBar = document.getElementById('progressBar');
+  const progPct = document.getElementById('progressPct');
+  const progLbl = document.getElementById('progressLabel');
+
+  function setP(pct,lbl){ progBar.style.width=pct+'%'; progPct.textContent=pct+'%'; progLbl.textContent=lbl; }
+
+  btn.disabled=true; btn.textContent='⏳ Procesando...';
+  progWrap.style.display='block'; setP(5,'Iniciando...');
+  await tick();
+
+  try {
+    setP(20,'Abriendo REMASEP...'); await tick();
+    resultWorkbook = remasepWorkbook;
+
+    const odName = resultWorkbook.SheetNames.find(n=>norm(n).includes('remasep_od')||norm(n).includes('remasepod'));
+    if(!odName) throw new Error('No se encontró la hoja REMASEP_OD.');
+    const ws = resultWorkbook.Sheets[odName];
+
+    document.getElementById('previewTables').innerHTML='';
+    const active = mappings.filter(m=>m.procedures.length>0);
+
+    for(let i=0;i<active.length;i++){
+      const mapping = active[i];
+      const pct = 30 + Math.round((i/active.length)*50);
+      setP(pct, `Clasificando: ${mapping.label}...`); await tick();
+
+      const counts = classifyRows(pastedRows, mapping.procedures);
+
+      setP(pct+15, `Escribiendo fila ${mapping.remasepRow} en REMASEP_OD...`); await tick();
+
+      const row = mapping.remasepRow;
+      for(const r of RANGOS){
+        writeCell(ws, r.colH+row, counts.hombres[r.nombre]||0);
+        writeCell(ws, r.colM+row, counts.mujeres[r.nombre]||0);
       }
+      writeCell(ws, COL_EMB+row, counts.embarazadas);
+      writeCell(ws, COL_MIG+row, counts.migrantes);
+
+      document.getElementById('previewTables').appendChild(buildPreview(mapping, counts));
     }
 
-    div.appendChild(header);
-    div.appendChild(subLabel);
-    div.appendChild(grid);
-    return div;
+    setP(90,'Validando CONTROL...'); await tick();
+    renderControl(resultWorkbook);
+
+    setP(100,'¡Listo!'); await tick(400);
+    progWrap.style.display='none';
+
+    alertEl.style.display='none';
+    document.getElementById('previewCard').style.display='block';
+    document.getElementById('downloadSection').style.display='block';
+    document.getElementById('previewCard').scrollIntoView({behavior:'smooth'});
+
+    btn.textContent='✅ Generado — clic para regenerar';
+    btn.disabled=false;
+
+  } catch(err){
+    console.error(err);
+    showAlert(alertEl,'err','Error: '+err.message);
+    progWrap.style.display='none';
+    btn.textContent='▶ Generar REMASEP llenado';
+    btn.disabled=false;
+  }
+}
+
+const tick = (ms=60) => new Promise(r=>setTimeout(r,ms));
+
+function writeCell(ws, addr, value) {
+  if(ws[addr]?.f) return; // no tocar fórmulas
+  if(!value){ if(ws[addr]) delete ws[addr]; return; }
+  ws[addr] = {v:value, t:'n'};
+}
+
+// ── Preview table ─────────────────────────────────────────────────────────────
+function buildPreview(mapping, counts) {
+  const wrap = document.createElement('div');
+  const title = document.createElement('div');
+  title.style.cssText='font-weight:800;font-size:14px;margin:12px 0 6px;';
+  title.innerHTML = `<span class="row-tag">Fila ${mapping.remasepRow}</span>${mapping.label}`
+    + (counts.excluidos>0 ? ` <span style="font-size:11px;background:var(--warn);padding:2px 8px;border-radius:6px;">⚠ ${counts.excluidos} sin edad</span>`:'');
+  wrap.appendChild(title);
+
+  const active = RANGOS.filter(r=>(counts.hombres[r.nombre]||0)+(counts.mujeres[r.nombre]||0)>0);
+  if(!active.length && !counts.embarazadas && !counts.migrantes){
+    const e=document.createElement('div');
+    e.style.cssText='color:var(--muted);font-size:13px;padding:8px 0;';
+    e.textContent='Sin registros para estos procedimientos.';
+    wrap.appendChild(e); return wrap;
   }
 
-  function addMapping() {
-    // Show a mini-form to add a new mapping
-    const row = prompt(
-      'Número de fila en REMASEP_OD para el nuevo tratamiento:\n' +
-      '(Ej: 42 para "Procedimiento pulpar")'
-    );
-    if (!row || isNaN(parseInt(row))) return;
-    const lbl = prompt('Descripción de esa fila en el REMASEP:') || ('Fila ' + row);
+  let totalH=0, totalM=0;
+  RANGOS.forEach(r=>{totalH+=counts.hombres[r.nombre]||0; totalM+=counts.mujeres[r.nombre]||0;});
 
-    mappingCounter++;
-    mappings.push({
-      id: mappingCounter,
-      remasepRow: parseInt(row),
-      label: lbl,
-      procedures: []
-    });
-    renderMappings();
+  const tw=document.createElement('div'); tw.className='table-wrap';
+  let html=`<table><thead><tr>
+    <th class="left">Rango de Edad</th><th>Hombres</th><th>Mujeres</th><th>Total</th>
+    <th>Embarazadas</th><th>Migrantes</th>
+    <th style="color:var(--muted);font-size:11px;">Col.H</th><th style="color:var(--muted);font-size:11px;">Col.M</th>
+  </tr></thead><tbody>`;
+
+  for(const r of active){
+    const h=counts.hombres[r.nombre]||0, m=counts.mujeres[r.nombre]||0;
+    html+=`<tr><td class="left">${r.nombre}</td><td>${h}</td><td>${m}</td><td>${h+m}</td>
+      <td>—</td><td>—</td>
+      <td style="color:var(--muted);font-size:11px;">${r.colH}${mapping.remasepRow}</td>
+      <td style="color:var(--muted);font-size:11px;">${r.colM}${mapping.remasepRow}</td></tr>`;
   }
+  html+=`<tr class="total-row"><td class="left">Total por sexo</td>
+    <td>${totalH}</td><td>${totalM}</td><td>${totalH+totalM}</td>
+    <td>${counts.embarazadas}</td><td>${counts.migrantes}</td>
+    <td style="font-size:11px;color:var(--muted);">AM${mapping.remasepRow}</td>
+    <td style="font-size:11px;color:var(--muted);">AN${mapping.remasepRow}</td></tr>
+  <tr class="total-personas"><td class="left"><strong>Total personas</strong></td>
+    <td colspan="3"><strong>${totalH+totalM}</strong></td><td colspan="4"></td></tr>`;
+  html+='</tbody></table>';
+  tw.innerHTML=html; wrap.appendChild(tw);
+  return wrap;
+}
 
-  function removeMapping(id) {
-    mappings = mappings.filter(m => m.id !== id);
-    renderMappings();
+// ── CONTROL validation ────────────────────────────────────────────────────────
+function renderControl(wb){
+  const cn=wb.SheetNames.find(n=>norm(n)==='control');
+  const box=document.getElementById('controlBox');
+  box.innerHTML='';
+  if(!cn){box.innerHTML='<span style="font-size:13px;color:var(--muted);">Hoja CONTROL no encontrada.</span>';return;}
+  const ws=wb.Sheets[cn];
+  const checks=[
+    {label:'HOJA NOMBRE',cell:'E6'},{label:'REMASEP 01',cell:'E7'},
+    {label:'URGENCIAS',cell:'E8'},{label:'REMASEP B1',cell:'E9'},
+    {label:'B2 ANEXO',cell:'E10'},{label:'REMASEP OD',cell:'E11'},
+    {label:'EyP_ET',cell:'E12'},{label:'TV MI',cell:'E13'},
+    {label:'SERV. SANGRE',cell:'E14'},{label:'TOTAL ERRORES',cell:'E16'},
+  ];
+  checks.forEach(c=>{
+    const cell=ws[c.cell];
+    const val=cell?(cell.v!==undefined?cell.v:(cell.f?'(fórmula)':'—')):'—';
+    const isOk=val===0||val==='0';
+    const item=document.createElement('div'); item.className='control-item';
+    const dot=document.createElement('div'); dot.className='dot'+(isOk?' ok':val==='(fórmula)'?'':' err');
+    item.appendChild(dot); item.appendChild(document.createTextNode(`${c.label}: ${val}`));
+    box.appendChild(item);
+  });
+}
+
+// ── Descarga ──────────────────────────────────────────────────────────────────
+function descargar(){
+  if(!resultWorkbook){alert('Primero genera el REMASEP.');return;}
+  let buf, name, mime;
+  try{
+    buf=XLSX.write(resultWorkbook,{bookType:'xlsm',type:'array',bookVBA:true});
+    name=remasepFileName.replace(/\.[^.]+$/,'')+'_llenado.xlsm';
+    mime='application/vnd.ms-excel.sheet.macroEnabled.12';
+  }catch{
+    buf=XLSX.write(resultWorkbook,{bookType:'xlsx',type:'array'});
+    name=remasepFileName.replace(/\.[^.]+$/,'')+'_llenado.xlsx';
+    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
   }
-
-  // ── Readiness check ────────────────────────────────────────────────────────
-
-  function checkReady() {
-    const mesOk     = document.getElementById('selMes').value !== '';
-    const regOk     = regWorkbook !== null;
-    const remasepOk = remasepWorkbook !== null;
-    const mapOk     = mappings.some(m => m.procedures.length > 0);
-    const btn = document.getElementById('btnGenerar');
-    btn.disabled = !(mesOk && regOk && remasepOk && mapOk);
-
-    // Actualizar checklist visual
-    const c = (ok, text) => (ok ? '✅ ' : '❌ ') + text;
-    document.getElementById('chk1').textContent = c(regOk,     'Registro de pacientes cargado' + (regOk ? ` (${regRows.length} registros 2026)` : ''));
-    document.getElementById('chk2').textContent = c(mesOk,     'Mes seleccionado' + (mesOk ? `: ${document.getElementById('selMes').value}` : ''));
-    document.getElementById('chk3').textContent = c(mapOk,     'Procedimiento(s) marcados' + (mapOk ? `: ${mappings.filter(m=>m.procedures.length>0).map(m=>m.procedures.join(', ')).join(' | ')}` : ''));
-    document.getElementById('chk4').textContent = c(remasepOk, 'Template REMASEP cargado' + (remasepOk ? ` ✓` : ''));
-
-    const alert = document.getElementById('alertGenerar');
-    if (mesOk && regOk && remasepOk && mapOk) { alert.style.display = 'none'; }
-
-    // Update badge2
-    if (mesOk && mapOk) {
-      document.getElementById('badge2').textContent = 'Listo';
-      document.getElementById('badge2').className = 'badge ok';
-      updateStepDots(3);
-    }
-  }
-
-  function showAlert(el, type, msg) {
-    el.className = 'alert ' + type;
-    el.textContent = msg;
-    el.style.display = 'block';
-  }
-
-  document.getElementById('selMes').addEventListener('change', checkReady);
-
-  // ── Step dots update ───────────────────────────────────────────────────────
-
-  function updateStepDots(activeStep) {
-    for (let i = 1; i <= 4; i++) {
-      const el = document.getElementById('sdot' + i);
-      if (!el) continue;
-      el.classList.remove('active', 'done');
-      if (i < activeStep) el.classList.add('done');
-      else if (i === activeStep) el.classList.add('active');
-    }
-  }
-
-  // ── Classification ─────────────────────────────────────────────────────────
-
-  function classifyRows(rows, mes, procedures) {
-    const COL = window._COL;
-    const normedMes  = normMes(mes);
-    const normedProcs = procedures.map(norm);
-
-    const counts = {
-      hombres:    {},
-      mujeres:    {},
-      embarazadas: 0,
-      migrantes:  0,
-      excluidos:  0,
-      total:      0,
-    };
-    RANGOS.forEach(r => { counts.hombres[r.nombre] = 0; counts.mujeres[r.nombre] = 0; });
-
-    for (const row of rows) {
-      const rowMes  = normMes(String(row[COL.mes] ?? ''));
-      const rowProc = norm(String(row[COL.procedimiento] ?? ''));
-
-      if (rowMes !== normedMes) continue;
-      if (!normedProcs.includes(rowProc)) continue;
-
-      const edad  = toNum(row[COL.edad]);
-      const cant  = Math.max(1, Math.round(toNum(row[COL.cantidad]) || 1));
-      const sexo  = row[COL.sexo];
-      const embar = COL.embarazada >= 0 ? yes(row[COL.embarazada]) : false;
-      const migr  = COL.migrante  >= 0 ? yes(row[COL.migrante])   : false;
-
-      if (isNaN(edad)) { counts.excluidos += cant; continue; }
-
-      const rango = findRange(edad);
-      if (!rango) { counts.excluidos += cant; continue; }
-
-      if (isMale(sexo))  { counts.hombres[rango.nombre] += cant; counts.total += cant; }
-      if (isFem(sexo))   { counts.mujeres[rango.nombre] += cant; counts.total += cant; }
-      if (embar) counts.embarazadas += cant;
-      if (migr)  counts.migrantes   += cant;
-    }
-
-    return counts;
-  }
-
-  // ── Generate ───────────────────────────────────────────────────────────────
-
-  async function generar() {
-    const alertEl = document.getElementById('alertGenerar');
-    const btn = document.getElementById('btnGenerar');
-    const mes = document.getElementById('selMes').value;
-
-    // Mostrar progreso
-    const progWrap = document.getElementById('progressWrap');
-    const progBar  = document.getElementById('progressBar');
-    const progPct  = document.getElementById('progressPct');
-    const progLbl  = document.getElementById('progressLabel');
-
-    function setProgress(pct, label) {
-      progBar.style.width = pct + '%';
-      progPct.textContent = pct + '%';
-      progLbl.textContent = label;
-    }
-
-    btn.disabled = true;
-    btn.textContent = '⏳ Procesando...';
-    progWrap.style.display = 'block';
-    setProgress(5, 'Iniciando...');
-
-    await new Promise(r => setTimeout(r, 80));
-
-    try {
-      setProgress(20, 'Abriendo REMASEP...');
-      await new Promise(r => setTimeout(r, 50));
-
-      // Work directly on the loaded workbook (no clone needed — user re-loads REMASEP each month)
-      resultWorkbook = remasepWorkbook;
-
-      const odSheetName = resultWorkbook.SheetNames.find(
-        n => norm(n).includes('remasep_od') || norm(n).includes('remasepod')
-      );
-      if (!odSheetName) throw new Error('No se encontró la hoja REMASEP_OD en el archivo.');
-      const ws = resultWorkbook.Sheets[odSheetName];
-
-      const previewTables = document.getElementById('previewTables');
-      previewTables.innerHTML = '';
-
-      let anyData = false;
-      const activeMappings = mappings.filter(m => m.procedures.length > 0);
-
-      for (let i = 0; i < activeMappings.length; i++) {
-        const mapping = activeMappings[i];
-        const pctBase = 40 + Math.round((i / activeMappings.length) * 40);
-
-        setProgress(pctBase, `Clasificando: ${mapping.label}...`);
-        await new Promise(r => setTimeout(r, 50));
-
-        const counts = classifyRows(regRows, mes, mapping.procedures);
-        anyData = true;
-
-        setProgress(pctBase + 15, `Escribiendo celdas en REMASEP_OD fila ${mapping.remasepRow}...`);
-        await new Promise(r => setTimeout(r, 40));
-
-        // Write to REMASEP_OD
-        const row = mapping.remasepRow;
-        for (const rango of RANGOS) {
-          const h = counts.hombres[rango.nombre] || 0;
-          const m = counts.mujeres[rango.nombre] || 0;
-          writeCell(ws, rango.colH + row, h);
-          writeCell(ws, rango.colM + row, m);
-        }
-        writeCell(ws, COL_EMBARAZADAS + row, counts.embarazadas);
-        writeCell(ws, COL_MIGRANTES   + row, counts.migrantes);
-
-        // Build preview table for this mapping
-        previewTables.appendChild(buildPreviewTable(mapping, mes, counts));
-      }
-
-      if (!anyData) {
-        showAlert(alertEl, 'warn', 'No se seleccionaron procedimientos en ningún mapeo.');
-        progWrap.style.display = 'none';
-        btn.textContent = '▶ Generar REMASEP llenado';
-        btn.disabled = false;
-        return;
-      }
-
-      setProgress(90, 'Validando pestaña Control...');
-      await new Promise(r => setTimeout(r, 40));
-
-      alertEl.style.display = 'none';
-      document.getElementById('previewCard').style.display = 'block';
-      document.getElementById('downloadSection').style.display = 'block';
-      updateStepDots(4);
-      document.getElementById('badge3').textContent = 'Listo';
-      document.getElementById('badge3').className = 'badge ok';
-
-      renderControl(resultWorkbook);
-
-      setProgress(100, '¡Listo!');
-      await new Promise(r => setTimeout(r, 400));
-      progWrap.style.display = 'none';
-
-      document.getElementById('previewCard').scrollIntoView({ behavior: 'smooth' });
-
-      btn.textContent = '✅ Generado — clic para regenerar';
-      btn.disabled = false;
-
-    } catch (err) {
-      console.error(err);
-      showAlert(alertEl, 'err', 'Error al generar: ' + err.message);
-      progWrap.style.display = 'none';
-      btn.textContent = '▶ Generar REMASEP llenado';
-      btn.disabled = false;
-    }
-  }
-
-  function writeCell(ws, addr, value) {
-    // Only write to cells that do NOT have formulas (safety check)
-    if (ws[addr] && ws[addr].f) {
-      console.warn('Celda con fórmula, no se escribe:', addr);
-      return;
-    }
-    if (value === 0) {
-      // Leave cell blank if value is 0 (cleaner REMASEP)
-      if (ws[addr]) delete ws[addr];
-      return;
-    }
-    ws[addr] = { v: value, t: 'n' };
-  }
-
-  // ── Preview table ──────────────────────────────────────────────────────────
-
-  function buildPreviewTable(mapping, mes, counts) {
-    const wrap = document.createElement('div');
-
-    const title = document.createElement('div');
-    title.style.cssText = 'font-weight:800; font-size:14px; margin: 12px 0 6px;';
-    title.innerHTML =
-      `<span class="row-tag">Fila ${mapping.remasepRow}</span> ${mapping.label} — ${mes}` +
-      (counts.excluidos > 0
-        ? ` <span class="excluidos">⚠ ${counts.excluidos} excluidos sin edad válida</span>`
-        : '');
-    wrap.appendChild(title);
-
-    // Only show ranges with data
-    const activeRangos = RANGOS.filter(r => (counts.hombres[r.nombre] || 0) + (counts.mujeres[r.nombre] || 0) > 0);
-
-    if (activeRangos.length === 0 && counts.embarazadas === 0 && counts.migrantes === 0) {
-      const empty = document.createElement('div');
-      empty.style.cssText = 'color:var(--muted); font-size:13px; padding: 8px 0;';
-      empty.textContent = 'Sin registros para este mes/procedimiento.';
-      wrap.appendChild(empty);
-      return wrap;
-    }
-
-    const tw = document.createElement('div');
-    tw.className = 'table-wrap';
-
-    let totalH = 0, totalM = 0;
-    RANGOS.forEach(r => { totalH += counts.hombres[r.nombre] || 0; totalM += counts.mujeres[r.nombre] || 0; });
-
-    let html = `<table>
-      <thead><tr>
-        <th class="left">Rango de Edad</th>
-        <th>Hombres</th><th>Mujeres</th><th>Total</th>
-        <th>Embarazadas</th><th>Migrantes</th>
-        <th>Col.H (REMASEP)</th><th>Col.M (REMASEP)</th>
-      </tr></thead><tbody>`;
-
-    for (const r of activeRangos) {
-      const h = counts.hombres[r.nombre] || 0;
-      const m = counts.mujeres[r.nombre] || 0;
-      html += `<tr>
-        <td class="left">${r.nombre}</td>
-        <td>${h}</td><td>${m}</td><td>${h + m}</td>
-        <td>—</td><td>—</td>
-        <td style="color:var(--muted);font-size:11px;">${r.colH}${mapping.remasepRow}</td>
-        <td style="color:var(--muted);font-size:11px;">${r.colM}${mapping.remasepRow}</td>
-      </tr>`;
-    }
-
-    html += `<tr class="total-row">
-      <td class="left">Total por sexo</td>
-      <td>${totalH}</td><td>${totalM}</td><td>${totalH + totalM}</td>
-      <td>${counts.embarazadas}</td><td>${counts.migrantes}</td>
-      <td style="color:var(--muted);font-size:11px;">AM${mapping.remasepRow}</td>
-      <td style="color:var(--muted);font-size:11px;">AN${mapping.remasepRow}</td>
-    </tr>
-    <tr class="total-personas">
-      <td class="left"><strong>Total personas</strong></td>
-      <td colspan="3"><strong>${totalH + totalM}</strong></td>
-      <td colspan="4"></td>
-    </tr>`;
-
-    html += '</tbody></table>';
-    tw.innerHTML = html;
-    wrap.appendChild(tw);
-    return wrap;
-  }
-
-  // ── CONTROL validation display ─────────────────────────────────────────────
-
-  function renderControl(wb) {
-    const ctrlName = wb.SheetNames.find(n => norm(n) === 'control');
-    const box = document.getElementById('controlBox');
-    box.innerHTML = '';
-
-    if (!ctrlName) {
-      box.innerHTML = '<span style="color:var(--muted);font-size:13px;">Hoja CONTROL no encontrada.</span>';
-      return;
-    }
-
-    const ws = wb.Sheets[ctrlName];
-
-    // Known control cells from exploration: D6-D14 labels, E6-E14 values
-    const checks = [
-      { label: 'HOJA NOMBRE',       cell: 'E6'  },
-      { label: 'REMASEP 01',        cell: 'E7'  },
-      { label: 'URGENCIAS',         cell: 'E8'  },
-      { label: 'REMASEP B1',        cell: 'E9'  },
-      { label: 'B2 ANEXO',          cell: 'E10' },
-      { label: 'REMASEP OD',        cell: 'E11' },
-      { label: 'EyP_ET',            cell: 'E12' },
-      { label: 'TV MI',             cell: 'E13' },
-      { label: 'SERV. SANGRE',      cell: 'E14' },
-      { label: 'TOTAL ERRORES',     cell: 'E16' },
-    ];
-
-    for (const c of checks) {
-      const cell = ws[c.cell];
-      const val  = cell ? (cell.v !== undefined ? cell.v : (cell.f ? '(fórmula)' : '—')) : '—';
-      const isOk = val === 0 || val === '0';
-      const isFormula = typeof val === 'string' && val.startsWith('(');
-
-      const item = document.createElement('div');
-      item.className = 'control-item';
-      const dot = document.createElement('div');
-      dot.className = 'dot' + (isFormula ? '' : (isOk ? ' ok' : ' err'));
-      item.appendChild(dot);
-      item.appendChild(document.createTextNode(`${c.label}: ${val}`));
-      box.appendChild(item);
-    }
-  }
-
-  // ── Download ───────────────────────────────────────────────────────────────
-
-  function descargar() {
-    if (!resultWorkbook) {
-      alert('Primero haz clic en "Generar REMASEP llenado".');
-      return;
-    }
-
-    const mes = document.getElementById('selMes').value;
-    const baseName = remasepFileName.replace(/\.[^.]+$/, '');
-
-    // Try xlsm first, fall back to xlsx
-    let arrayBuf, fileName, mimeType;
-    try {
-      arrayBuf = XLSX.write(resultWorkbook, { bookType: 'xlsm', type: 'array', bookVBA: true });
-      fileName = baseName + `_${mes}_llenado.xlsm`;
-      mimeType = 'application/vnd.ms-excel.sheet.macroEnabled.12';
-    } catch (e1) {
-      try {
-        arrayBuf = XLSX.write(resultWorkbook, { bookType: 'xlsx', type: 'array' });
-        fileName = baseName + `_${mes}_llenado.xlsx`;
-        mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      } catch (e2) {
-        alert('No se pudo generar el archivo: ' + e2.message);
-        return;
-      }
-    }
-
-    // Blob URL download — funciona en todos los navegadores modernos
-    const blob = new Blob([arrayBuf], { type: mimeType });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-  }
-
-  // ── Init ───────────────────────────────────────────────────────────────────
-
-  setupDropzone('dz1', 'fileReg', loadRegistry);
-  setupDropzone('dz2', 'fileRemasep', loadRemasep);
-
-  // Expose removeMapping to global for inline onclick
-  window.removeMapping = removeMapping;
-  window.addMapping    = addMapping;
-
+  const blob=new Blob([buf],{type:mime});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
+}
+
+function showAlert(el,type,msg){el.className='alert '+type;el.textContent=msg;el.style.display='block';}
+window.removeMapping=removeMapping;
+window.addMapping=addMapping;
+
+setupDrop();
+checkReady();
 })();
 </script>
 </body>
