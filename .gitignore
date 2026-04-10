@@ -1,0 +1,11 @@
+# Excel files — contienen datos clínicos privados, NO subir al repositorio
+*.xlsx
+*.xls
+*.xlsm
+*.xlsb
+~$*
+
+# Archivos temporales de Office
+*.tmp
+.DS_Store
+Thumbs.db
