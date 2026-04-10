@@ -160,7 +160,7 @@
 <body>
 <div class="wrap">
 
-  <h1>⚙️ REMASEP AUTOMATIZADOR <span style="font-size:13px; font-weight:400; color:var(--muted); margin-left:8px;">v1.4</span></h1>
+  <h1>⚙️ REMASEP AUTOMATIZADOR <span style="font-size:13px; font-weight:400; color:var(--muted); margin-left:8px;">v1.5</span></h1>
   <p class="subtitle">Rellena la pestaña REMASEP_OD automáticamente desde tu registro de pacientes.</p>
 
   <!-- Progress steps -->
@@ -236,6 +236,16 @@
       <button class="big" id="btnGenerar" disabled onclick="generar()">
         ▶ Generar REMASEP llenado
       </button>
+      <!-- Barra de progreso -->
+      <div id="progressWrap" style="display:none; margin-top:12px;">
+        <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:4px;">
+          <span id="progressLabel">Procesando...</span>
+          <span id="progressPct">0%</span>
+        </div>
+        <div style="background:#fde8c8; border-radius:20px; height:10px; overflow:hidden;">
+          <div id="progressBar" style="height:100%; width:0%; background:var(--accent); border-radius:20px; transition:width 0.3s ease;"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -726,14 +736,29 @@
     const btn = document.getElementById('btnGenerar');
     const mes = document.getElementById('selMes').value;
 
-    // Mostrar estado de carga en el botón
+    // Mostrar progreso
+    const progWrap = document.getElementById('progressWrap');
+    const progBar  = document.getElementById('progressBar');
+    const progPct  = document.getElementById('progressPct');
+    const progLbl  = document.getElementById('progressLabel');
+
+    function setProgress(pct, label) {
+      progBar.style.width = pct + '%';
+      progPct.textContent = pct + '%';
+      progLbl.textContent = label;
+    }
+
     btn.disabled = true;
     btn.textContent = '⏳ Procesando...';
+    progWrap.style.display = 'block';
+    setProgress(5, 'Iniciando...');
 
-    // Ceder al navegador para que actualice la UI antes de procesar
-    await new Promise(r => setTimeout(r, 60));
+    await new Promise(r => setTimeout(r, 80));
 
     try {
+      setProgress(20, 'Abriendo REMASEP...');
+      await new Promise(r => setTimeout(r, 50));
+
       // Work directly on the loaded workbook (no clone needed — user re-loads REMASEP each month)
       resultWorkbook = remasepWorkbook;
 
@@ -747,12 +772,20 @@
       previewTables.innerHTML = '';
 
       let anyData = false;
+      const activeMappings = mappings.filter(m => m.procedures.length > 0);
 
-      for (const mapping of mappings) {
-        if (mapping.procedures.length === 0) continue;
+      for (let i = 0; i < activeMappings.length; i++) {
+        const mapping = activeMappings[i];
+        const pctBase = 40 + Math.round((i / activeMappings.length) * 40);
+
+        setProgress(pctBase, `Clasificando: ${mapping.label}...`);
+        await new Promise(r => setTimeout(r, 50));
 
         const counts = classifyRows(regRows, mes, mapping.procedures);
         anyData = true;
+
+        setProgress(pctBase + 15, `Escribiendo celdas en REMASEP_OD fila ${mapping.remasepRow}...`);
+        await new Promise(r => setTimeout(r, 40));
 
         // Write to REMASEP_OD
         const row = mapping.remasepRow;
@@ -771,8 +804,14 @@
 
       if (!anyData) {
         showAlert(alertEl, 'warn', 'No se seleccionaron procedimientos en ningún mapeo.');
+        progWrap.style.display = 'none';
+        btn.textContent = '▶ Generar REMASEP llenado';
+        btn.disabled = false;
         return;
       }
+
+      setProgress(90, 'Validando pestaña Control...');
+      await new Promise(r => setTimeout(r, 40));
 
       alertEl.style.display = 'none';
       document.getElementById('previewCard').style.display = 'block';
@@ -781,18 +820,21 @@
       document.getElementById('badge3').textContent = 'Listo';
       document.getElementById('badge3').className = 'badge ok';
 
-      // Show CONTROL validation
       renderControl(resultWorkbook);
 
-      // Scroll to result
+      setProgress(100, '¡Listo!');
+      await new Promise(r => setTimeout(r, 400));
+      progWrap.style.display = 'none';
+
       document.getElementById('previewCard').scrollIntoView({ behavior: 'smooth' });
 
-      btn.textContent = '✅ Generado — vuelve a hacer clic para regenerar';
+      btn.textContent = '✅ Generado — clic para regenerar';
       btn.disabled = false;
 
     } catch (err) {
       console.error(err);
       showAlert(alertEl, 'err', 'Error al generar: ' + err.message);
+      progWrap.style.display = 'none';
       btn.textContent = '▶ Generar REMASEP llenado';
       btn.disabled = false;
     }
