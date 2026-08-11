@@ -163,6 +163,7 @@
       </table>
     </div>
     <div id="copySection" style="margin-top:16px"></div>
+    <div id="mqSection" style="display:none;margin-top:16px"></div>
   </div>
 
 </main>
@@ -440,6 +441,77 @@
       btnCopyTabla.style.cssText='background:var(--green-light);color:var(--green);border-color:#86efac';
       setTimeout(()=>{btnCopyTabla.textContent='📋 Copiar fila';btnCopyTabla.style.cssText='';},2500);
     };
+
+    // ── SECCIÓN AUTOMÁTICA: Procedimientos Médico Quirúrgicos (15% de Exodoncia) ──
+    const _mqSection=document.getElementById('mqSection');
+    const exoTrats=Object.keys(byTrat).filter(t=>/exodoncia/i.test(t));
+    if(exoTrats.length>0){
+      // Acumular todos los pacientes de exodoncia
+      const mqByRi={};let mqE=0,mqMi=0,totalExoPers=0;
+      for(const t of exoTrats){
+        const d=byTrat[t];
+        for(const [ri,v] of Object.entries(d.ri)){
+          if(!mqByRi[ri])mqByRi[ri]={H:0,M:0};
+          mqByRi[ri].H+=v.H; mqByRi[ri].M+=v.M;
+          totalExoPers+=v.H+v.M;
+        }
+        mqE+=d.E; mqMi+=d.Mi;
+      }
+      const totalMQ=Math.max(1,Math.round(totalExoPers*0.20));
+      const ratio=totalExoPers>0?totalMQ/totalExoPers:0;
+
+      // Escalar al 15%
+      const mqVals=new Array(36).fill(0);
+      let sumMQ=0;
+      for(const [ri,v] of Object.entries(mqByRi)){
+        const h=Math.round(v.H*ratio), m=Math.round(v.M*ratio);
+        mqVals[Number(ri)*2]=h; mqVals[Number(ri)*2+1]=m;
+        sumMQ+=h+m;
+      }
+      mqVals[34]=Math.round(mqE*ratio);
+      mqVals[35]=Math.round(mqMi*ratio);
+      const tsvMQ=mqVals.join('\t');
+
+      // Preview
+      let mqPreview='';
+      for(let i=0;i<34;i++){
+        if(mqVals[i]){
+          const rn=RANGOS[Math.floor(i/2)].n;
+          const short=rn.replace(' años','a').replace('Menos de 1 año - 1 año','<1a').replace(' y más','+');
+          mqPreview+=`<span class="cv">${short} ${i%2===0?'H':'M'}: <b>${mqVals[i]}</b></span>`;
+        }
+      }
+      if(mqVals[34]) mqPreview+=`<span class="cv cv-emb">Emb: <b>${mqVals[34]}</b></span>`;
+      if(mqVals[35]) mqPreview+=`<span class="cv cv-mig">Mig: <b>${mqVals[35]}</b></span>`;
+      mqPreview+=`<span class="cv" style="background:var(--orange-mid);border-color:var(--border2);font-weight:700">Total: <b>${sumMQ}</b></span>`;
+
+      const mqId='mq_btn_'+Math.random().toString(36).substr(2,6);
+      _mqSection.innerHTML=`
+        <div style="margin-bottom:8px"><strong style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Derivado automático (15% de Exodoncia)</strong></div>
+        <div class="copy-block">
+          <div class="copy-header">
+            <span class="copy-trat">Procedimientos Médico Quirúrgicos</span>
+            <button class="btn-copy" id="${mqId}">📋 Copiar fila</button>
+          </div>
+          <div class="copy-preview">${mqPreview}</div>
+          <p class="copy-hint" id="h_${mqId}"></p>
+        </div>`;
+      _mqSection.style.display='block';
+
+      const mqBtn=document.getElementById(mqId);
+      if(mqBtn) mqBtn.addEventListener('click',()=>{
+        const hint=document.getElementById('h_'+mqId);
+        const fallback=()=>{const ta=document.createElement('textarea');ta.value=tsvMQ;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta);};
+        if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(tsvMQ).then(()=>{}).catch(fallback);}else{fallback();}
+        mqBtn.textContent='✅ Copiado!';
+        mqBtn.style.cssText='background:var(--green-light);color:var(--green);border-color:#86efac';
+        if(hint) hint.textContent='Pega desde la celda E de la fila correspondiente en Excel (Ctrl+V).';
+        setTimeout(()=>{mqBtn.textContent='📋 Copiar fila';mqBtn.style.cssText='';},2500);
+      });
+    } else {
+      _mqSection.style.display='none';
+      _mqSection.innerHTML='';
+    }
 
     paso3.style.display='block';
     paso3.scrollIntoView({behavior:'smooth',block:'start'});
