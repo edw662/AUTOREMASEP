@@ -442,7 +442,7 @@
       setTimeout(()=>{btnCopyTabla.textContent='📋 Copiar fila';btnCopyTabla.style.cssText='';},2500);
     };
 
-    // ── SECCIÓN AUTOMÁTICA: Procedimientos Médico Quirúrgicos (15% de Exodoncia) ──
+    // ── SECCIÓN AUTOMÁTICA: Procedimientos Médico Quirúrgicos (20% de Exodoncia) ──
     const _mqSection=document.getElementById('mqSection');
     const exoTrats=Object.keys(byTrat).filter(t=>/exodoncia/i.test(t));
     if(exoTrats.length>0){
@@ -457,17 +457,29 @@
         }
         mqE+=d.E; mqMi+=d.Mi;
       }
-      const totalMQ=Math.max(1,Math.round(totalExoPers*0.20));
+      // Usar total real de exodoncias (incluye pacientes sin edad registrada)
+      const totalExoReal=Object.entries(treatCounts).filter(([k])=>/exodoncia/i.test(k)).reduce((s,[,v])=>s+v,0);
+      const totalMQ=Math.max(1,Math.round(totalExoReal*0.20));
       const ratio=totalExoPers>0?totalMQ/totalExoPers:0;
 
-      // Escalar al 15%
+      // Escalar al 20% usando largest remainder para que sume exactamente totalMQ
       const mqVals=new Array(36).fill(0);
-      let sumMQ=0;
+      // Calcular valores exactos con decimales para H y M por rango
+      const exactos=[];
       for(const [ri,v] of Object.entries(mqByRi)){
-        const h=Math.round(v.H*ratio), m=Math.round(v.M*ratio);
-        mqVals[Number(ri)*2]=h; mqVals[Number(ri)*2+1]=m;
-        sumMQ+=h+m;
+        exactos.push({ri:Number(ri),tipo:'H',exact:v.H*ratio});
+        exactos.push({ri:Number(ri),tipo:'M',exact:v.M*ratio});
       }
+      // Asignar parte entera primero
+      exactos.forEach(e=>{ e.floor=Math.floor(e.exact); e.rem=e.exact-e.floor; });
+      let asignado=exactos.reduce((s,e)=>s+e.floor,0);
+      // Distribuir el resto por largest remainder
+      const resto=totalMQ-asignado;
+      exactos.sort((a,b)=>b.rem-a.rem);
+      for(let i=0;i<resto;i++) if(exactos[i]) exactos[i].floor+=1;
+      // Volcar a mqVals
+      exactos.forEach(e=>{ mqVals[e.ri*2+(e.tipo==='M'?1:0)]=e.floor; });
+      let sumMQ=exactos.reduce((s,e)=>s+e.floor,0);
       mqVals[34]=Math.round(mqE*ratio);
       mqVals[35]=Math.round(mqMi*ratio);
       const tsvMQ=mqVals.join('\t');
@@ -487,7 +499,7 @@
 
       const mqId='mq_btn_'+Math.random().toString(36).substr(2,6);
       _mqSection.innerHTML=`
-        <div style="margin-bottom:8px"><strong style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Derivado automático (15% de Exodoncia)</strong></div>
+        <div style="margin-bottom:8px"><strong style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Derivado automático (20% de Exodoncia)</strong> <span style="font-family:'DM Mono',monospace;font-size:11px;background:var(--orange-mid);border-radius:5px;padding:1px 7px">${totalExoReal} exodoncias × 20% = ${totalMQ}</span></div>
         <div class="copy-block">
           <div class="copy-header">
             <span class="copy-trat">Procedimientos Médico Quirúrgicos</span>
