@@ -200,22 +200,52 @@
   const tagList=$('tagList'), searchInput=$('searchInput'), suggestions=$('suggestions');
   const btnTodos=$('btnTodos'), btnLimpiar=$('btnLimpiar'), btnProcesar=$('btnProcesar');
   const hintSel=$('hintSel'), remasepBody=$('remasepBody'), selNote=$('selNote');
+  // fileInput y fileLoaded eliminados - archivo integrado
+  // variables de paso 4 eliminadas
 
   // ── PARSE ────────────────────────────────────────────────
   function parseData(text){
     const rows=[];
-    for(const line of text.trim().split(/\r?\n/).filter(l=>l.trim())){
-      const c=line.split('\t');
-      if(c.length<9)continue;
-      const nombre=(c[1]||'').trim();
-      if(!nombre)continue;
-      if(/^anulad/i.test(nombre))continue;
-      if(/^(pago|compra|devoluci[oó]n)/i.test(nombre))continue;
-      const proc=(c[8]||'').trim();
-      if(!proc||/^pago$/i.test(proc))continue;
-      rows.push({nombre,sexo:(c[2]||'').trim(),edad:(c[3]||'').trim(),
-        embarazada:(c[4]||'').trim(),migrante:(c[5]||'').trim(),
-        tratamiento:proc,cantidad:Math.max(1,parseInt(c[9]||'')||1)});
+    const lines=text.trim().split(/\r?\n/).filter(l=>l.trim());
+    if(!lines.length) return rows;
+
+    const sep=lines[0].includes('\t')?'\t':';';
+
+    // Detectar fila de encabezado y mapear columnas dinámicamente
+    let colNombre=1,colSexo=2,colEdad=3,colEmb=4,colMig=5,colProc=8,colCant=9;
+    const firstCols=lines[0].split(sep).map(c=>c.trim().toLowerCase());
+    const esEncabezado=firstCols.some(c=>c.includes('nombre')||c.includes('procedimiento')||c.includes('fecha'));
+    if(esEncabezado){
+      firstCols.forEach((c,i)=>{
+        if(c.includes('nombre'))           colNombre=i;
+        else if(c.includes('sexo'))        colSexo=i;
+        else if(c.includes('edad'))        colEdad=i;
+        else if(c.includes('embaraz'))     colEmb=i;
+        else if(c.includes('migr'))        colMig=i;
+        else if(c.includes('procedimiento')||c.includes('actividad')) colProc=i;
+        else if(c.includes('cantidad'))    colCant=i;
+      });
+    }
+
+    const inicio=esEncabezado?1:0;
+    for(const line of lines.slice(inicio)){
+      const c=line.split(sep);
+      if(c.length<=colProc) continue;
+      const nombre=(c[colNombre]||'').trim();
+      if(!nombre) continue;
+      if(/^anulad/i.test(nombre)) continue;
+      if(/^(pago|compra|devoluci[oó]n)/i.test(nombre)) continue;
+      const proc=(c[colProc]||'').trim();
+      if(!proc||/^pago$/i.test(proc)) continue;
+      rows.push({
+        nombre,
+        sexo      :(c[colSexo]||'').trim(),
+        edad      :(c[colEdad]||'').trim(),
+        embarazada:(c[colEmb]||'').trim(),
+        migrante  :(c[colMig]||'').trim(),
+        tratamiento:proc,
+        cantidad  :Math.max(1,parseInt(c[colCant]||'')||1)
+      });
     }
     return rows;
   }
@@ -421,7 +451,12 @@
     const text=pasteArea.value;
     if(!text.trim()){alert('Pega los datos primero.');return;}
     allRows=parseData(text);
-    if(!allRows.length){alert('No se encontraron filas válidas. Asegúrate de copiar desde Excel con columnas separadas por tabulaciones.');return;}
+    if(!allRows.length){
+      const lineas=pasteArea.value.trim().split(/\r?\n/).filter(l=>l.trim());
+      const cols=lineas[0]?lineas[0].split('\t').length:0;
+      alert(`No se encontraron filas válidas.\n\nDiagnóstico:\n• Líneas pegadas: ${lineas.length}\n• Columnas detectadas en la 1ª línea: ${cols} (se necesitan 9+)\n\nAsegúrate de copiar directamente desde Excel seleccionando las filas con Ctrl+C.`);
+      return;
+    }
     treatCounts={};
     for(const r of allRows)treatCounts[r.tratamiento]=(treatCounts[r.tratamiento]||0)+r.cantidad;
     activeTags.clear();
@@ -433,7 +468,7 @@
   btnBorrar.addEventListener('click',()=>{
     pasteArea.value='';allRows=[];treatCounts={};activeTags.clear();remasepResult=null;
     paso2.style.display='none';paso3.style.display='none';
-  });
+      });
 
   btnTodos.addEventListener('click',()=>{Object.keys(treatCounts).forEach(k=>activeTags.add(k));renderTags();updBtn();});
   btnLimpiar.addEventListener('click',()=>{activeTags.clear();renderTags();updBtn();paso3.style.display='none';});
